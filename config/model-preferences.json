@@ -1,0 +1,9 @@
+{
+  "openrouter_models": [
+    {
+      "id": "google/gemini-2.5-flash",
+      "name": "Gemini 2.5 Flash",
+      "description": "Fast, cheap, excellent vision — primary cloud model"
+    }
+  ]
+}

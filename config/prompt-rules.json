@@ -1,0 +1,206 @@
+{
+  "version": 2,
+  "global_rules": [
+    "Never include aspect ratio in the prompt — set it directly in the tool's UI",
+    "Never use the word 'slider' for camera movement",
+    "Describe what you want to appear, not what to avoid — use positive framing (e.g. 'empty street' not 'no cars')",
+    "Never use command words like 'generate', 'create', or 'make' — they are not visual cues",
+    "Be hyper-specific about materials and surfaces: never say 'jacket', say 'navy blue tweed jacket'; never say 'mug', say 'minimalist ceramic coffee mug'",
+    "Prompts should be descriptive, not conversational — do not include pleasantries, questions, or requests like 'can you please generate'. Just describe the visual",
+    "Use positive phrasing only — never describe what should NOT appear (e.g. 'a bald man' not 'a man with no hair'). Negative phrasing may produce the opposite result"
+  ],
+
+  "targets": {
+    "nano_banana": {
+      "skeleton": "[Subject + strong action verb] + [Location/Context] + [Composition/Framing] + [Lighting] + [Style/Aesthetic]",
+      "output_format": "Output a single prompt string. Use the Gen-4 Image formula: [Subject + strong action verb] + [Location/Context] + [Composition/Framing] + [Lighting] + [Style/Aesthetic]. Use full sentences for precise control, and append style keywords where additional variation is desired. Be hyper-specific about materials, lens, lighting, and composition. The prompt will be pasted directly into RunwayML's Gen-4 Image interface.",
+      "must_include": [
+        "Strong subject + action verb opening (not a vague noun like 'A bottle' — instead 'A bottle catches golden light')",
+        "Explicit lighting description naming the technique (not just 'lit' or 'bright')",
+        "At least one named material or surface texture",
+        "Composition / framing language (rule of thirds, negative space, leading lines, etc.)",
+        "A defined visual style or aesthetic"
+      ],
+      "must_avoid": [
+        "Stacking more than 2 distinct style references — quality degrades quickly above the 1–2 style limit",
+        "Vague nouns without action verbs — every prompt should open with subject + verb",
+        "Generic lighting words ('nice lighting', 'good light') — name the technique"
+      ],
+      "vocabulary": {
+        "lighting": ["three-point softbox", "chiaroscuro", "golden hour backlighting", "volumetric light", "rim lighting", "side lighting", "directional sunlight", "soft diffused light", "fill lighting", "warm gel lighting", "ethereal glow"],
+        "lens_camera": ["85mm portrait lens", "35mm film grain", "200mm telephoto compression", "wide-angle lens", "macro lens", "fisheye lens", "GoPro distorted action", "Fujifilm color science", "medium-format analog film"],
+        "composition": ["Dutch angle", "rule of thirds", "center-framed", "low-angle shot", "aerial view", "bird's-eye view", "worm's-eye view", "eye-level", "symmetrical composition", "negative space", "frame within frame", "leading lines"],
+        "materials": ["brushed titanium", "weathered oak", "physics-based rendering (PBR)", "reflective chrome", "polished marble", "matte ceramic", "frosted glass", "rough linen", "velvet", "satin", "terracotta", "brushed aluminum", "liquid chrome"],
+        "color_grading": ["Kodak film", "expired film aesthetic", "1980s color grading", "cinematic muted teal", "high saturation", "desaturated cool palette", "muted tones", "pastel color palette"],
+        "aesthetic_styles": ["glitchcore", "dreamy (soft focus, light leaks, ethereal glow)", "modern (sharp, clean, minimalistic)", "horror (high contrast, desaturated, dark palette)", "lo-fi", "vaporwave (saturated pink/purple/blue, neon)"],
+        "art_styles": ["collage (mixed media, torn paper edges)", "pastel baroque", "storybook illustration", "anime (flat shading, exaggerated features)", "pixel art"],
+        "camera_film_styles": ["disposable flash photography", "damaged film (scratches, light leaks)", "heavy film grain", "VHS (tracking lines, analog color bleeding)"]
+      },
+      "examples": [
+        {
+          "instruction": "A vintage typewriter on a desk by a sunlit window, moody",
+          "good_output": "A weathered black Underwood typewriter rests centered on a worn oak desk, with a single half-typed page curling out of the carriage. Behind it, a tall sash window pours golden hour light across the desktop, casting long warm shadows over scattered loose-leaf paper, a brass desk lamp, and a chipped ceramic mug. Shot on an 85mm portrait lens with shallow depth of field, the background dissolving into soft bokeh of dust motes drifting through the air. Side-lit chiaroscuro lighting carves the typewriter keys in sharp relief. Kodak film color grading, warm tones, melancholy mood, editorial photography aesthetic.",
+          "why": "Strong subject + verb opening ('typewriter rests', 'light pours'), named materials (weathered oak, brass, chipped ceramic), specified lens (85mm portrait), named lighting (side-lit chiaroscuro, golden hour), film stock (Kodak), composition (centered, shallow DOF), no negative phrasing, no artist names, no command verbs."
+        }
+      ],
+      "rules": [
+        "Gen-4 Image prompts support a wide variety of structures, keywords, and styles. Promptable elements: Subject, Scene, Composition, Lighting, Color, Style, Focus, Angle, Text, Mood",
+        "Detailed prompts give fine-tuned control — use full sentences for precise control over elements, and append additional keywords where more variation is welcomed",
+        "Lighting is the single most impactful element — always specify it",
+        "For transparency and reflective surfaces, call them out explicitly: 'glass bottle with visible caustic light refraction', 'chrome surface with environment reflection'",
+        "Specify product placement with compositional language: 'placed in the lower-right corner using rule of thirds', 'centered in negative space', 'foreground left with blurred background'",
+        "For text in images: enclose desired text in quotes and describe the rendering style — e.g. 'neon sign that spells \"RUNWAY\"', 'theater marquee that boldly spells \"FRAMES\"', 'balloons forming the word \"HELLO\"'",
+        "Reference specific color grading and film stock when relevant",
+        "For subject poses: 'relaxed pose', 'natural motion blur emphasizes movement', 'curves and bends impossibly' (surreal anatomy)"
+      ]
+    },
+
+    "veo": {
+      "skeleton": "[Camera shot] of [subject/object] [active verb action] in [environment]. [Lighting]. [Audio if enabled]. [Style upfront].",
+      "output_format": "Output a single prompt block of dense cinematographic detail. Use the Runway structure: [Camera] shot of [subject/object] [action] in [environment]. [Supporting descriptions]. Describe both visual elements AND motion. Use precise camera terminology (push in, dolly, tracking, orbit, etc.). The prompt will be pasted directly into RunwayML's video generation interface.",
+      "must_include": [
+        "Exactly ONE primary camera motion (multiple competing motions cause the model to improvise)",
+        "Active subject-verb action — never passive constructions",
+        "Environment + atmosphere using sensory and atmospheric language",
+        "Lighting: source, direction, quality, color temperature",
+        "Visual style defined upfront (cinematic / animation / 35mm film noir / handheld documentary / etc.)",
+        "Audio design — ambient soundscape, dialogue, mechanical sounds, music style (when audio is enabled)",
+        "Add 'no subtitles' at the end if you do not want text overlaid on the video"
+      ],
+      "must_avoid": [
+        "Multiple competing camera motions in one prompt — pick ONE primary motion",
+        "Passive verbs ('there was a man standing') — always use active subject-verb",
+        "Vague action ('doing things', 'interacting', 'moving around') — give exact play-by-play",
+        "Ambiguous dialogue — either specify exact lines or say 'character speaks about [topic]'"
+      ],
+      "vocabulary": {
+        "shot_sizes": ["macro", "extreme close-up", "close-up", "medium", "full", "wide", "extreme wide", "establishing"],
+        "angles": ["aerial", "high angle", "low angle", "bird's eye view", "worm's eye view", "over the shoulder", "POV"],
+        "camera_motions": ["static", "pan", "tilt up", "tilt down", "dolly", "push in", "pull back", "truck", "tracking", "pedestal", "crane", "jib", "orbit", "arc", "zoom", "crash zoom", "whip pan"],
+        "stabilization": ["handheld (natural shake)", "steadicam (smooth walk)", "gimbal (precise complex movement)", "static (completely still)"],
+        "focus": ["deep focus", "soft focus", "rack focus", "shallow focus"],
+        "composition": ["leading lines", "frame within frame", "symmetrical", "negative space"],
+        "audio": ["ambient soundscape", "dialogue (specify exact lines or topic)", "mechanical sounds", "music style", "Foley (footsteps, fabric rustle)", "environmental audio"]
+      },
+      "examples": [
+        {
+          "instruction": "A barista pulling an espresso shot, slow-mo dramatic feel",
+          "good_output": "Tracking macro shot of a barista's hand tilting a chrome portafilter into a stainless steel espresso machine, slow-motion at 240fps. Dark crema crowns the shot glass as ribbons of espresso spiral down through the polished spout. Warm pendant lighting reflects off the brushed metal, casting amber pools across the marble counter. The camera pushes in three inches and locks. Ambient hiss of a steaming wand, the mechanical click of the portafilter handle, the faint murmur of a coffee shop conversation. Cinematic 35mm film stock with shallow depth of field, soft film grain, rich shadow detail. The atmosphere is intimate, ritualistic, sensual. No subtitles.",
+          "why": "Active subject-verb opening ('hand tilting'), single camera motion ('pushes in three inches and locks'), named materials (chrome, brushed metal, marble), specific audio (hiss, click, murmur), style upfront (35mm cinematic), exact play-by-play of action, ends with 'no subtitles'."
+        }
+      ],
+      "rules": [
+        "Text-to-Video prompts must contain two essential elements: (1) Visual descriptions — what we see, where, and how it looks, and (2) Motion descriptions — how the scene moves and behaves",
+        "Visual components to describe: Subject appearance, Environment, Lighting, Composition/Framing, Style",
+        "Motion components to describe: Subject action, Environmental motion, Camera motion, Motion style & timing, Direction & speed",
+        "Pack the prompt with rich, layered cinematographic detail across visuals, motion, lighting, audio, and atmosphere — hit the per-platform length target stated in the Length section above. A sparse prompt under-uses the model when the platform allows much more. Cut a clause only if it duplicates or contradicts another, never because the prompt 'feels long'",
+        "Veo 3 natively generates synchronized sound — when audio is enabled, specify ambient soundscapes, dialogue, mechanical sounds, music style, or environmental audio cues",
+        "Describe characters with precise physical detail (age, hair, clothing material, expression) — vague character descriptions produce inconsistent results",
+        "Use sensory and atmospheric language for locations: 'a smoky jazz club at night with amber light pooling on the bar top' not 'a jazz club'",
+        "For action sequences, give an exact play-by-play — Veo follows explicit action instructions more reliably than implied ones",
+        "Timestamp prompting helps control when specific actions occur: pair timestamps with natural language descriptions for most control. Format: '[00:00 through 00:02] action A. [00:02 through 00:04] action B.' Ensure timestamps allow realistic time for each action to complete",
+        "For static/motionless camera: describe the motion within the scene and add 'The camera is entirely motionless for the duration of the scene, with movement only occurring from the subject'",
+        "Text to Video handles complex motion sequences more effectively than Image to Video because it is not constrained to a starting scene — good for B-roll, stock effects, or background plates"
+      ]
+    },
+
+    "firefly": {
+      "skeleton": "[Subject], [Setting/Scene], [Style or Medium], [Lighting], [Mood/Details]",
+      "output_format": "Output a single prompt string using comma-separated descriptors. Use the Firefly formula: [Subject] + [Setting/Scene] + [Style or Medium] + [Lighting] + [Mood/Details]. Never use artist names or branded IP. The prompt will be pasted directly into Adobe Firefly or Photoshop's generative fill panel.",
+      "must_include": [
+        "Explicit artistic medium or style (oil painting, photorealistic, 3D render, cinematic, etc.)",
+        "Lighting specified using stock-photo vocabulary",
+        "Adobe Stock-style descriptive vocabulary (browse stock.adobe.com for terminology)",
+        "An emotional tone word as a style modifier (gentle, playful, melancholic, etc.)"
+      ],
+      "must_avoid": [
+        "Artist names — Firefly was trained on Adobe Stock and open-licensed content, not artist portfolios. Artist modifiers do nothing here",
+        "Branded IP or pop culture ('Harry Potter style', trademarked imagery) — won't translate",
+        "Sentence-style prose — Firefly responds best to comma-separated descriptors"
+      ],
+      "vocabulary": {
+        "mediums": ["oil painting", "watercolor", "3D render", "digital art", "macro photography", "editorial illustration", "cinematic", "film noir", "photorealistic", "hyperrealism", "cel-shaded", "flat vector", "hand-drawn"],
+        "lighting": ["studio shot", "shallow depth of field", "warm gel lighting", "low-angle macro close-up", "directional sunlight", "soft diffused light", "rim lighting", "golden hour"],
+        "emotional_tones": ["gentle", "playful", "powerful", "uplifting", "melancholic", "lonely", "misty", "intimate", "dramatic"],
+        "quality": ["high detail", "ultra-realistic", "photorealistic", "cinematic render", "8K", "sharp focus", "studio quality"]
+      },
+      "examples": [
+        {
+          "instruction": "Coastal cliffs at sunset for a brand campaign, no people",
+          "good_output": "Dramatic sandstone coastal cliffs at golden hour, deep ocean below, breaking waves with white foam, sweeping aerial drone shot, wide cinematic composition, warm directional sunlight raking across the cliff face, soft pastel sky with scattered cumulus clouds, cinematic muted teal and orange color grading, photorealistic, 8K, sharp focus, gentle uplifting mood, NO people, NO buildings, NO text",
+          "why": "Comma-separated descriptors, no artist names, no branded IP, lighting specified (golden hour, directional sunlight), composition (aerial drone, wide cinematic), emotional tone ('gentle uplifting'), quality keywords (8K, sharp focus, photorealistic), NO syntax for unwanted elements at the end."
+        }
+      ],
+      "rules": [
+        "Use Adobe Stock vocabulary — Firefly responds to the same keyword language used in stock photo metadata",
+        "For photographic prompts: always include lens/lighting/angle terms — 'studio shot', 'shallow depth of field', 'warm gel lighting', 'low-angle macro close-up'",
+        "Use emotional tone words as legitimate style modifiers: 'gentle', 'playful', 'powerful', 'uplifting', 'melancholic', 'lonely', 'misty' — they influence mood effectively",
+        "For Generative Fill / Expand (Photoshop): use action verbs — 'Add [object] at [location], [material] surface, [light direction], [shadow type]' or 'Replace [element] with [description]'",
+        "For campaign consistency across a series: open with 'Same composition and lighting as previous — subject is now...' to maintain visual coherence",
+        "For negative space / masking prep: add 'clear separation between subject and background, subject isolated on [surface/color]' when the output needs to be masked",
+        "Negative prompt syntax (where supported): use 'NO [element]' at the end — e.g. 'coastal cliffs at sunset, dramatic clouds, NO people, NO text'"
+      ]
+    }
+  },
+
+  "overlays": {
+    "photoshop": {
+      "skeleton": "Replace with [object], [material], [texture]. [Lighting only if it must blend with the existing scene].",
+      "output_format": "2-4 descriptive sentences, under 400 characters. Use the action-verb form: 'Replace with [object], [material], [texture], [mood]' or 'Add [object], [material], [context]'. Photoshop already has the surrounding image — only describe the inserted element.",
+      "must_include": [
+        "Action-verb opening (Replace with..., Add..., Insert...)",
+        "Specific material and texture for the inserted element"
+      ],
+      "must_avoid": [
+        "Camera details, lens references, focal lengths, or shot types — Photoshop is filling a selection, not framing a photograph",
+        "Description of the rest of the image — Photoshop already has it",
+        "Defaulting to lighting as the main descriptor — only mention lighting when blending with the existing scene requires it (e.g. shadow direction)"
+      ],
+      "examples": [
+        {
+          "instruction": "Replace this empty area with a steaming cup of coffee on the desk",
+          "good_output": "Replace with a steaming ceramic cup of black coffee, glossy white finish, thin white wisps of vapor rising from the surface. The mug rests directly on the wooden desk surface. Soft morning light from the upper left, with a subtle warm shadow falling to the lower right to match the existing scene.",
+          "why": "Action-verb start ('Replace with'), only describes the cup and its immediate surface and the lighting needed to blend, under 400 chars, no camera details, named materials (ceramic, glossy white)."
+        }
+      ],
+      "rules": [
+        "This prompt is for Photoshop's Generative Fill/Expand. The user has already made (or will make) a selection in Photoshop — your prompt only describes WHAT goes inside that selection, not the surrounding scene",
+        "Write 2-4 descriptive sentences, aiming for under 400 characters. No preamble, no explanations, no scene-setting beyond the selected area",
+        "Be descriptive about material, texture, color, and mood — mention lighting only when critical for blending with the existing image (e.g. shadow direction)"
+      ]
+    },
+
+    "runway_image_to_video": {
+      "skeleton": "The camera [single primary motion] as [the figure/object] [active verb action]. [Additional motion or temporal detail].",
+      "must_include": [
+        "A single primary camera motion (push in, pull back, orbit, tracking, static, etc.) — never multiple competing motions",
+        "Subject motion described with general references ('the figure', 'the car', 'the object') so the model can isolate the right element from the input image",
+        "Concrete active verbs for what should HAPPEN — what changes between t=0 and the final frame"
+      ],
+      "must_avoid": [
+        "Re-describing visual elements already present in the input image (composition, materials, lighting, style) — the image already supplies those",
+        "Over-describing motion with five clauses when one or two would do — Image-to-Video over-prompts collapse into chaotic movement",
+        "Prompting motion that contradicts visual cues already in the input image (e.g. requesting a left pan when the subject is mid-leap to the right)"
+      ],
+      "examples": [
+        {
+          "instruction": "Animate this still product shot of a watch on a marble surface — slow, premium feel",
+          "good_output": "The camera pushes in slowly toward the watch face as the second hand sweeps one full rotation. The figure remains centered and grounded; only a faint highlight travels across the polished crystal as the camera closes the distance. Continuous, seamless shot. The locked-off subject stays exactly where it began on the surface; the camera does the work.",
+          "why": "Single primary camera motion (slow push-in), subject referenced generally ('the figure', 'the second hand'), concrete active verb ('sweeps'), no re-description of marble/watch materials (those are in the input image), explicit anti-cut cue ('Continuous, seamless shot'), and a clarifying instruction that fixes the subject in place to prevent unwanted drift."
+        }
+      ],
+      "rules": [
+        "Image-to-Video prompts should focus EXCLUSIVELY on motion — the input image already defines composition, subject matter, lighting, and style. Your prompt describes what should HAPPEN, not what is already visible",
+        "Recommended structure: 'The camera [motion description] as the subject [action]. [Additional descriptions]'",
+        "Motion components to describe: Subject action, Environmental motion, Camera motion, Motion style & timing, Direction & speed",
+        "To control individual elements from the image, refer to characters and objects with general language (e.g. 'the figure', 'the car', 'the object') to isolate them and define their motion",
+        "Only describe visual elements when: introducing something NOT in the image, requesting dramatic changes from the starting image, specifying transformation details, or describing interactions between multiple elements",
+        "Start with a simple prompt focusing on the most critical motion, then add detail to refine — over-describing can limit the model's ability to produce natural movement",
+        "Sequential prompting for temporal control — use natural language ('X occurs, then Y occurs. Finally, Z occurs.') or timestamps ('[00:01] X occurs. [00:03] Y occurs.')",
+        "If receiving unwanted cuts in the video, try increasing duration and/or adding 'Continuous, seamless shot' to the prompt",
+        "To minimize camera motion, describe what subject motion should occur and add 'The locked-off camera remains perfectly still. Minimal subject motion only.'",
+        "Watch for implied motion cues in the input image (motion blur, mid-action poses, dust clouds, directional lines) — prompting for motion that contradicts these visual cues may require extra iteration or pre-editing the image"
+      ]
+    }
+  }
+}
