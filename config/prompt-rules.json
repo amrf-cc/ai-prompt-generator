@@ -140,6 +140,62 @@
         "For negative space / masking prep: add 'clear separation between subject and background, subject isolated on [surface/color]' when the output needs to be masked",
         "Negative prompt syntax (where supported): use 'NO [element]' at the end — e.g. 'coastal cliffs at sunset, dramatic clouds, NO people, NO text'"
       ]
+    },
+
+    "gpt_image": {
+      "skeleton": "[Background/Scene]. [Subject and pose]. [Key visual details: materials, textures, framing, lighting, medium]. [Constraints: what stays the same, literal text in quotes, medium].",
+      "output_format": "Output a single prompt as a clean prose paragraph (one or two sentences are fine). Use a consistent order: background/scene → subject → key details (materials, textures, framing, lighting, medium) → constraints. Use plain natural language — no markdown, no labels. Place any literal text the image must contain inside double quotes with explicit typography (font style, weight, size, color, placement). For photoreal results say 'photorealistic' explicitly. State invariants for edits ('preserve identity', 'keep everything else the same'). Iterate with small follow-ups rather than packing every requirement into one prompt. The prompt will be pasted directly into ChatGPT's image-generation tool.",
+      "must_include": [
+        "A consistent scene → subject → details → constraints ordering",
+        "Concrete materials, textures, or surfaces named for the subject (not just nouns)",
+        "Framing or perspective (close-up, wide, eye-level, low-angle, etc.) and a lighting cue",
+        "A medium identifier (photograph, 3D render, watercolor, illustration, etc.); for photoreal output use the word 'photorealistic'",
+        "Explicit invariants for edit-style prompts — what must change vs. what must stay the same ('preserve identity', 'keep everything else the same', 'no watermark')",
+        "Literal text rendered exactly: quote it in double quotes and specify typography (font style, weight, color, placement)"
+      ],
+      "must_avoid": [
+        "Overloading the prompt with stacked, conflicting style references — pick one medium and one or two style cues, not five",
+        "Negative phrasing of what should NOT appear (describe the desired state positively instead)",
+        "Abstract or evaluative language without concrete textures, materials, or composition ('beautiful', 'cool', 'amazing')",
+        "Conflicting medium signals (e.g. 'photograph in oil-painting style') — commit to one medium",
+        "Embedding every requirement in one giant prompt when an iterative single-change refinement would be cleaner"
+      ],
+      "vocabulary": {
+        "framing_perspective": ["close-up", "medium shot", "wide shot", "full body", "eye-level", "low-angle", "high-angle", "overhead", "Dutch angle", "rule of thirds", "centered composition"],
+        "lighting": ["soft natural light", "directional sunlight", "golden hour backlighting", "studio softbox", "rim lighting", "side lighting", "diffused window light", "high-key", "low-key", "chiaroscuro"],
+        "authenticity_cues": ["candid", "unposed", "real texture", "natural skin pores", "organic imperfection", "documentary-style", "found-moment composition"],
+        "photography_terms": ["35mm film grain", "85mm portrait lens", "shallow depth of field", "deep depth of field", "macro detail", "medium-format film look", "Kodak color science"],
+        "mediums": ["photograph", "photorealistic", "3D render", "physically based render", "studio illustration", "watercolor", "ink and wash", "oil painting", "vector illustration", "isometric render", "infographic", "diagram"],
+        "materials": ["brushed steel", "weathered oak", "polished marble", "matte ceramic", "frosted glass", "rough linen", "supple leather", "raw concrete", "anodized aluminum", "natural cotton"],
+        "typography": ["bold sans-serif", "serif display face", "monospaced", "all caps", "small caps", "drop shadow", "outlined letters", "centered", "bottom-aligned"],
+        "edit_invariants": ["preserve identity", "keep everything else the same", "do not change the background", "no watermark", "match the original lighting"]
+      },
+      "examples": [
+        {
+          "instruction": "A barista in a small specialty café handing a takeaway cup to a customer, warm afternoon mood",
+          "good_output": "A small specialty café with exposed brick walls, hanging Edison bulbs, and a chalkboard menu in the background. In the foreground, a barista in a charcoal canvas apron leans across a brushed-steel counter to hand a paper takeaway cup to a customer whose hand is just visible at the edge of the frame. Warm afternoon light rakes in from a window on the right, catching steam rising from the cup; medium shot at eye level, shallow depth of field on an 85mm lens, photorealistic with natural skin texture and subtle film grain. Keep the scene candid and unposed, with no logos or visible brand text on the cup.",
+          "why": "Consistent scene → subject → details → constraints ordering; one medium ('photorealistic'); concrete materials (brushed steel, charcoal canvas, paper cup); explicit framing (medium shot, eye level) and lens (85mm); authenticity cues (candid, unposed, natural skin texture); explicit invariant ('no logos or visible brand text'); positive phrasing throughout."
+        },
+        {
+          "instruction": "A flat illustrated infographic showing the four stages of photosynthesis with labels",
+          "good_output": "A clean flat-vector infographic on a soft cream background showing four numbered stages of photosynthesis arranged left to right. Each stage shows a stylized leaf with a thin sun-ray icon, a water-droplet icon, a CO2 cloud, and a glucose hexagon, drawn in a limited green-and-mustard palette with subtle paper texture. Above each stage, render the labels exactly: \"1. LIGHT\", \"2. WATER\", \"3. CO2\", \"4. GLUCOSE\" in a bold sans-serif, all caps, dark green, centered above each illustration. Keep the line weight consistent across icons; vector illustration with no photorealistic shading.",
+          "why": "Single committed medium ('flat-vector infographic'); literal text in double quotes with typography fully specified (bold sans-serif, all caps, dark green, centered); explicit constraints ('limited palette', 'consistent line weight', 'no photorealistic shading'); positive framing; clear ordering scene → subject → details → constraints."
+        }
+      ],
+      "rules": [
+        "Write in a consistent order: background/scene → subject → key details (materials, textures, framing, lighting, medium) → constraints. The model follows this ordering reliably",
+        "Pick ONE medium and commit to it ('photorealistic', '3D render', 'flat-vector illustration', 'watercolor'). Mixing mediums in a single prompt confuses the generator",
+        "For photoreal output, include the literal word 'photorealistic' and at least one authenticity cue (candid, unposed, real skin texture, film grain) to engage the model's photorealistic mode",
+        "State invariants explicitly when editing: separate what should change from what must stay the same — 'preserve identity', 'keep everything else the same', 'do not change the background', 'no watermark'",
+        "Render literal text by placing it inside double quotes and specifying typography fully: font family/style, weight, color, size, and placement. For tricky words, spell them out letter-by-letter in the prompt",
+        "When referencing multiple input images, identify each by index ('image 1', 'image 2') and describe how they should interact — do not assume the model will infer the relationship",
+        "Use concrete, descriptive language: name materials, textures, framing, and lighting. Replace evaluative words ('beautiful', 'cool') with the visual properties that produce that impression",
+        "Use positive framing only — describe what should appear, not what should NOT appear (negative phrasing can produce the opposite of the intent)",
+        "Mention the intended use case when relevant ('for a slide', 'for a UI mock', 'for an editorial cover') — this sets the model's mode and improves layout",
+        "Prefer iterative refinement over one giant prompt: start with a clean base, then refine with small single-change follow-ups. A moderately detailed prompt that you can iterate on usually beats an exhaustive one-shot",
+        "Quality lever: only invoke high-detail / textured-brushstroke / macro-detail vocabulary when the use case actually needs it — otherwise it muddies simpler outputs",
+        "For identity-sensitive edits (portraits, branded products, recurring characters), repeat the preserve-list across iterations: 'preserve facial features, preserve outfit, preserve background' — repetition reduces unintended drift"
+      ]
     }
   },
 

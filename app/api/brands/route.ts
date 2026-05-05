@@ -2,13 +2,13 @@ import { NextRequest } from "next/server";
 import path from "path";
 import { listBrands, createBrand, saveBrandFile, getBrand } from "@/lib/brands";
 import { compressImageBuffer, isImageMime } from "@/lib/image-compress";
-import { requireUser, requireAdmin } from "@/lib/auth-helpers";
+import { requireUser, isBrandVisibleTo } from "@/lib/auth-helpers";
 
 export async function GET() {
   const r = await requireUser();
   if (r.error) return r.error;
   try {
-    const brands = listBrands();
+    const brands = listBrands().filter((b) => isBrandVisibleTo(b, r.user));
     return Response.json(brands);
   } catch (err) {
     return Response.json({ error: String(err) }, { status: 500 });
@@ -16,7 +16,7 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const r = await requireAdmin();
+  const r = await requireUser();
   if (r.error) return r.error;
   try {
     const formData = await request.formData();
@@ -27,9 +27,16 @@ export async function POST(request: NextRequest) {
       return Response.json({ error: "Brand name is required" }, { status: 400 });
     }
 
-    const brand = createBrand(name, notes);
+    const brand = createBrand(name, notes, { owner_email: r.user.email });
     const existing = getBrand(brand.slug);
     const isFresh = !existing || existing.files.length === 0;
+
+    if (existing && !isBrandVisibleTo(existing, r.user)) {
+      return Response.json(
+        { error: "A brand with that name already exists and isn't yours" },
+        { status: 409 }
+      );
+    }
 
     const files = formData.getAll("files") as File[];
     for (const file of files) {

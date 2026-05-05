@@ -1,4 +1,5 @@
 import { auth } from "@/auth";
+import type { BrandProfile } from "@/lib/types";
 
 export interface AuthedUser {
   email: string;
@@ -50,17 +51,43 @@ export function isBrandLocked(slug: string): boolean {
   return lockedSlugs().includes(slug);
 }
 
+export function isBrandVisibleTo(
+  brand: Pick<BrandProfile, "owner_email" | "shared">,
+  user: AuthedUser
+): boolean {
+  if (user.isAdmin) return true;
+  if (brand.shared === true) return true;
+  if (brand.owner_email && brand.owner_email.toLowerCase() === user.email) {
+    return true;
+  }
+  return false;
+}
+
 export function assertCanEditBrand(
   slug: string,
-  user: { isAdmin: boolean }
+  user: AuthedUser,
+  brand?: Pick<BrandProfile, "owner_email" | "shared">
 ): Response | null {
-  if (isBrandLocked(slug) && !user.isAdmin) {
+  if (user.isAdmin) return null;
+  if (isBrandLocked(slug)) {
     return Response.json(
       { error: "Brand is locked — admin only" },
       { status: 403 }
     );
   }
-  return null;
+  if (brand?.shared === true) {
+    return Response.json(
+      { error: "Shared brand is admin-only to edit" },
+      { status: 403 }
+    );
+  }
+  if (
+    brand?.owner_email &&
+    brand.owner_email.toLowerCase() === user.email
+  ) {
+    return null;
+  }
+  return Response.json({ error: "Forbidden" }, { status: 403 });
 }
 
 export function getLockedBrandSlugs(): string[] {

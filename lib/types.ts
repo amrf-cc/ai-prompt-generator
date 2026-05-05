@@ -8,18 +8,32 @@ export type Mode =
   | "text_to_image"
   | "text_to_video";
 
-export type OutputTarget = "nano_banana" | "veo" | "firefly";
+export type OutputTarget =
+  | "nano_banana"
+  | "veo"
+  | "firefly"
+  | "gpt_image";
 
-export type Software = "photoshop" | "firefly" | "runway";
+export type Software = "photoshop" | "firefly" | "runway" | "other";
 
 export const MODES: { value: Mode; label: string; videoOnly: boolean }[] = [
-  { value: "edit_single", label: "Edit single image", videoOnly: false },
-  { value: "combine_images", label: "Combine images", videoOnly: false },
   {
     value: "place_product",
-    label: "Place product in scene",
+    label: "Place object in scene",
     videoOnly: false,
   },
+  {
+    value: "text_to_image",
+    label: "Text to image (from scratch)",
+    videoOnly: false,
+  },
+  {
+    value: "text_to_video",
+    label: "Text to video (from scratch)",
+    videoOnly: true,
+  },
+  { value: "edit_single", label: "Edit single image", videoOnly: false },
+  { value: "combine_images", label: "Combine images", videoOnly: false },
   {
     value: "animate_single",
     label: "Animate from single image",
@@ -35,22 +49,13 @@ export const MODES: { value: Mode; label: string; videoOnly: boolean }[] = [
     label: "Video Backdrop (multi-clip)",
     videoOnly: false,
   },
-  {
-    value: "text_to_image",
-    label: "Text to image (from scratch)",
-    videoOnly: false,
-  },
-  {
-    value: "text_to_video",
-    label: "Text to video (from scratch)",
-    videoOnly: true,
-  },
 ];
 
 export const OUTPUT_TARGETS: { value: OutputTarget; label: string; type: "image" | "video" }[] = [
   { value: "nano_banana", label: "Nano Banana", type: "image" },
   { value: "veo", label: "Veo", type: "video" },
   { value: "firefly", label: "Adobe Firefly", type: "image" },
+  { value: "gpt_image", label: "GPT Image", type: "image" },
 ];
 
 export const SOFTWARES: {
@@ -60,6 +65,14 @@ export const SOFTWARES: {
   supportsVideo: boolean;
   availableTargets: OutputTarget[];
 }[] = [
+  {
+    value: "other",
+    label: "Other",
+    description:
+      "Use each model's native web app — Gemini (web) for Nano Banana / Veo, ChatGPT (web) for GPT Image, Firefly (web) for Adobe Firefly",
+    supportsVideo: true,
+    availableTargets: ["nano_banana", "veo", "firefly", "gpt_image"],
+  },
   {
     value: "photoshop",
     label: "Photoshop",
@@ -116,6 +129,9 @@ export function getDefaultTarget(software: Software, mode: Mode): OutputTarget {
   }
   if (software === "photoshop" && targets.includes("firefly")) return "firefly";
   if (software === "firefly" && targets.includes("firefly")) return "firefly";
+  if (software === "other") {
+    return MODES.find((m) => m.value === mode)!.videoOnly ? "veo" : "nano_banana";
+  }
   return targets[0];
 }
 
@@ -135,10 +151,43 @@ export function getCharLimit(
     }
     return { hard: 5000, soft: "3800–4700 characters (use the full budget)" };
   }
+  if (software === "other") {
+    if (target === "veo") {
+      return {
+        hard: 2000,
+        soft:
+          "220–290 words / ~1500–1850 characters of dense cinematographic detail",
+      };
+    }
+    if (target === "gpt_image") {
+      return {
+        hard: 1500,
+        soft:
+          "moderate detail (~700–1000 characters), ordered scene → subject → key details → constraints — iterate, don't overload",
+      };
+    }
+    // nano_banana, firefly via Gemini/Firefly web app
+    return { hard: 1000, soft: "800–1000 characters (use the full budget)" };
+  }
   if (target === "veo") {
     return { hard: 2000, soft: "220–290 words / ~1500–1850 characters of dense cinematographic detail" };
   }
   return { hard: 1000, soft: "800–1000 characters (use the full budget)" };
+}
+
+export function getSoftwareDisplayName(
+  software: Software,
+  target: OutputTarget
+): string {
+  const targetEntry = OUTPUT_TARGETS.find((t) => t.value === target);
+  const targetLabel = targetEntry?.label ?? target;
+  if (software === "photoshop") return "Adobe Photoshop's Generative Fill / Expand";
+  if (software === "firefly") return "the Adobe Firefly web app";
+  if (software === "runway") return `RunwayML (${targetLabel})`;
+  // software === "other" — infer from the chosen model's provider web app
+  if (target === "gpt_image") return "ChatGPT (web)";
+  if (target === "firefly") return "the Adobe Firefly web app";
+  return "the Gemini web app";
 }
 
 export interface BrandVoice {
@@ -178,6 +227,10 @@ export interface BrandProfile {
   voice?: BrandVoice;
   visual?: BrandVisual;
   legal?: BrandLegal;
+  /** Email of the user who created/owns this brand. Missing on legacy brands → admin-only. */
+  owner_email?: string;
+  /** When true, every authenticated user can see (but not necessarily edit) this brand. */
+  shared?: boolean;
 }
 
 export type BrandExtractField = "voice" | "visual" | "legal";

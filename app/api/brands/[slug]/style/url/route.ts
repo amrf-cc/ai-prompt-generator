@@ -1,7 +1,11 @@
 import { NextRequest } from "next/server";
 import { getBrand } from "@/lib/brands";
 import { ingestUrl } from "@/lib/url-style-ingest";
-import { requireUser, assertCanEditBrand } from "@/lib/auth-helpers";
+import {
+  requireUser,
+  assertCanEditBrand,
+  isBrandVisibleTo,
+} from "@/lib/auth-helpers";
 
 export async function POST(
   request: NextRequest,
@@ -11,11 +15,15 @@ export async function POST(
   if (r.error) return r.error;
   try {
     const { slug } = await params;
-    const block = assertCanEditBrand(slug, r.user);
-    if (block) return block;
-    if (!getBrand(slug)) {
+    const brandRecord = getBrand(slug);
+    if (!brandRecord) {
       return Response.json({ error: "Brand not found" }, { status: 404 });
     }
+    if (!isBrandVisibleTo(brandRecord, r.user)) {
+      return Response.json({ error: "Brand not found" }, { status: 404 });
+    }
+    const block = assertCanEditBrand(slug, r.user, brandRecord);
+    if (block) return block;
     const body = (await request.json()) as { url?: string };
     const url = (body.url ?? "").trim();
     if (!url) return Response.json({ error: "url required" }, { status: 400 });

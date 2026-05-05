@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const resolvedSoftware: Software = software ?? "runway";
+  const resolvedSoftware: Software = software ?? "other";
   const outputTarget: OutputTarget =
     clientOutputTarget ?? getDefaultTarget(resolvedSoftware, mode);
 

@@ -62,6 +62,9 @@ function buildBrandFromMeta(
     voice: meta.voice as BrandProfile["voice"],
     visual: meta.visual as BrandProfile["visual"],
     legal: meta.legal as BrandProfile["legal"],
+    owner_email:
+      typeof meta.owner_email === "string" ? meta.owner_email.toLowerCase() : undefined,
+    shared: meta.shared === true ? true : undefined,
   };
 }
 
@@ -86,7 +89,11 @@ export function getBrand(slug: string): BrandProfile | null {
   return buildBrandFromMeta(meta, slug);
 }
 
-export function createBrand(name: string, notes: string): BrandProfile {
+export function createBrand(
+  name: string,
+  notes: string,
+  options: { owner_email?: string; shared?: boolean } = {}
+): BrandProfile {
   ensureBrandsDir();
   const slug = name
     .toLowerCase()
@@ -103,12 +110,18 @@ export function createBrand(name: string, notes: string): BrandProfile {
     return buildBrandFromMeta(existing, slug);
   }
 
-  const metadata = {
+  const metadata: Record<string, unknown> = {
     name,
     slug,
     created_at: new Date().toISOString(),
     notes,
   };
+  if (options.owner_email) {
+    metadata.owner_email = options.owner_email.toLowerCase();
+  }
+  if (options.shared) {
+    metadata.shared = true;
+  }
 
   fs.writeFileSync(
     path.join(brandDir, "metadata.json"),

@@ -2,7 +2,11 @@ import { NextRequest } from "next/server";
 import path from "path";
 import { getBrand, saveStyleFile, deleteStyleFile } from "@/lib/brands";
 import { compressImageBuffer, isImageMime } from "@/lib/image-compress";
-import { requireUser, assertCanEditBrand } from "@/lib/auth-helpers";
+import {
+  requireUser,
+  assertCanEditBrand,
+  isBrandVisibleTo,
+} from "@/lib/auth-helpers";
 
 export async function POST(
   request: NextRequest,
@@ -12,11 +16,15 @@ export async function POST(
   if (r.error) return r.error;
   try {
     const { slug } = await params;
-    const block = assertCanEditBrand(slug, r.user);
-    if (block) return block;
-    if (!getBrand(slug)) {
+    const brandRecord = getBrand(slug);
+    if (!brandRecord) {
       return Response.json({ error: "Brand not found" }, { status: 404 });
     }
+    if (!isBrandVisibleTo(brandRecord, r.user)) {
+      return Response.json({ error: "Brand not found" }, { status: 404 });
+    }
+    const block = assertCanEditBrand(slug, r.user, brandRecord);
+    if (block) return block;
 
     const formData = await request.formData();
     const files = formData.getAll("files") as File[];
@@ -55,7 +63,14 @@ export async function DELETE(
   if (r.error) return r.error;
   try {
     const { slug } = await params;
-    const block = assertCanEditBrand(slug, r.user);
+    const brandRecord = getBrand(slug);
+    if (!brandRecord) {
+      return Response.json({ error: "Not found" }, { status: 404 });
+    }
+    if (!isBrandVisibleTo(brandRecord, r.user)) {
+      return Response.json({ error: "Not found" }, { status: 404 });
+    }
+    const block = assertCanEditBrand(slug, r.user, brandRecord);
     if (block) return block;
     const url = new URL(request.url);
     const file = url.searchParams.get("file");

@@ -1,7 +1,11 @@
 import { NextRequest } from "next/server";
 import { getBrand, updateBrandMetadata, deleteBrandFile } from "@/lib/brands";
 import type { BrandProfile } from "@/lib/types";
-import { requireUser, assertCanEditBrand } from "@/lib/auth-helpers";
+import {
+  requireUser,
+  assertCanEditBrand,
+  isBrandVisibleTo,
+} from "@/lib/auth-helpers";
 
 export async function GET(
   _request: NextRequest,
@@ -12,6 +16,9 @@ export async function GET(
   const { slug } = await params;
   const brand = getBrand(slug);
   if (!brand) return Response.json({ error: "Not found" }, { status: 404 });
+  if (!isBrandVisibleTo(brand, r.user)) {
+    return Response.json({ error: "Not found" }, { status: 404 });
+  }
   return Response.json(brand);
 }
 
@@ -23,7 +30,12 @@ export async function PATCH(
   if (r.error) return r.error;
   try {
     const { slug } = await params;
-    const block = assertCanEditBrand(slug, r.user);
+    const existing = getBrand(slug);
+    if (!existing) return Response.json({ error: "Not found" }, { status: 404 });
+    if (!isBrandVisibleTo(existing, r.user)) {
+      return Response.json({ error: "Not found" }, { status: 404 });
+    }
+    const block = assertCanEditBrand(slug, r.user, existing);
     if (block) return block;
 
     const body = (await request.json()) as Partial<{
@@ -55,7 +67,12 @@ export async function DELETE(
   if (r.error) return r.error;
   try {
     const { slug } = await params;
-    const block = assertCanEditBrand(slug, r.user);
+    const existing = getBrand(slug);
+    if (!existing) return Response.json({ error: "Not found" }, { status: 404 });
+    if (!isBrandVisibleTo(existing, r.user)) {
+      return Response.json({ error: "Not found" }, { status: 404 });
+    }
+    const block = assertCanEditBrand(slug, r.user, existing);
     if (block) return block;
 
     const url = new URL(request.url);

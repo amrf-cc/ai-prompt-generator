@@ -7,7 +7,7 @@ import type {
   OutputTarget,
   ModelPreferences,
 } from "@/lib/types";
-import { getCharLimit } from "@/lib/types";
+import { getCharLimit, getSoftwareDisplayName, OUTPUT_TARGETS } from "@/lib/types";
 import { CONFIG_DIR } from "@/lib/paths";
 import { requireUser } from "@/lib/auth-helpers";
 
@@ -63,19 +63,12 @@ export async function POST(request: NextRequest) {
 
   const charLimit = getCharLimit(software, outputTarget);
 
-  const targetLabel =
-    outputTarget === "veo"
-      ? "video generation (Veo)"
-      : outputTarget === "firefly"
-        ? "Adobe Firefly image generation"
-        : "Nano Banana image generation";
+  const targetEntry = OUTPUT_TARGETS.find((t) => t.value === outputTarget);
+  const targetLabel = targetEntry
+    ? `${targetEntry.label} ${targetEntry.type} generation`
+    : `${outputTarget} generation`;
 
-  const softwareLabel =
-    software === "photoshop"
-      ? "Photoshop Generative Fill"
-      : software === "firefly"
-        ? "Adobe Firefly web"
-        : "RunwayML";
+  const softwareLabel = getSoftwareDisplayName(software, outputTarget);
 
   const systemPrompt = `You are a prompt editor. You are refining an AI generation prompt for ${targetLabel}, used in ${softwareLabel}.
 

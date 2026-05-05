@@ -19,9 +19,6 @@ import {
   OUTPUT_TARGETS,
   SOFTWARES,
   FEEDBACK_TAGS,
-  getAvailableModes,
-  getAvailableTargets,
-  getDefaultTarget,
   getCharLimit,
 } from "@/lib/types";
 
@@ -513,6 +510,9 @@ function PaintEditor({
   const [drawing, setDrawing] = useState(false);
   const [imgSize, setImgSize] = useState<{ w: number; h: number } | null>(null);
   const lastPointRef = useRef<{ x: number; y: number } | null>(null);
+  const [paintTool, setPaintTool] = useState<"brush" | "lasso">("brush");
+  const lassoPointsRef = useRef<{ x: number; y: number }[]>([]);
+  const lassoSnapshotRef = useRef<ImageData | null>(null);
 
   // Cursor overlay state
   const [cursorPos, setCursorPos] = useState<{
@@ -716,8 +716,26 @@ function PaintEditor({
               className="w-8 h-8 bg-transparent border border-border rounded cursor-pointer"
             />
           </label>
+          <div className="flex items-center gap-1 bg-background p-1 rounded-lg border border-border">
+            <button
+              onClick={() => setPaintTool("brush")}
+              className={`px-3 py-1 text-xs rounded-md ${
+                paintTool === "brush" ? "bg-accent text-white" : "hover:bg-card-hover"
+              }`}
+            >
+              Brush
+            </button>
+            <button
+              onClick={() => setPaintTool("lasso")}
+              className={`px-3 py-1 text-xs rounded-md ${
+                paintTool === "lasso" ? "bg-accent text-white" : "hover:bg-card-hover"
+              }`}
+            >
+              Lasso
+            </button>
+          </div>
           <label className="text-xs flex items-center gap-2 flex-1 min-w-[160px]">
-            Brush
+            Size
             <input
               type="range"
               min={4}
@@ -763,37 +781,92 @@ function PaintEditor({
             <canvas
               ref={paintCanvasRef}
               className="absolute inset-0 w-full h-full touch-none"
-              style={{ cursor: "none" }}
+              style={{ cursor: paintTool === "brush" ? "none" : "crosshair" }}
               onPointerDown={(e) => {
-                (e.target as HTMLCanvasElement).setPointerCapture(
-                  e.pointerId
-                );
+                (e.target as HTMLCanvasElement).setPointerCapture(e.pointerId);
                 saveUndoState();
                 setDrawing(true);
                 const p = getCanvasPoint(e);
-                lastPointRef.current = p;
-                drawTo(p);
+                
+                if (paintTool === "brush") {
+                  lastPointRef.current = p;
+                  drawTo(p);
+                } else if (paintTool === "lasso") {
+                  lassoPointsRef.current = [p];
+                  const canvas = paintCanvasRef.current;
+                  const ctx = canvas?.getContext("2d");
+                  if (canvas && ctx) {
+                    lassoSnapshotRef.current = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                  }
+                }
                 updateCursor(e);
               }}
               onPointerMove={(e) => {
                 updateCursor(e);
-                if (drawing) drawTo(getCanvasPoint(e));
+                if (!drawing) return;
+                const p = getCanvasPoint(e);
+                
+                if (paintTool === "brush") {
+                  drawTo(p);
+                } else if (paintTool === "lasso") {
+                  lassoPointsRef.current.push(p);
+                  const canvas = paintCanvasRef.current;
+                  const ctx = canvas?.getContext("2d");
+                  if (canvas && ctx && lassoSnapshotRef.current) {
+                    ctx.putImageData(lassoSnapshotRef.current, 0, 0);
+                    ctx.beginPath();
+                    ctx.moveTo(lassoPointsRef.current[0].x, lassoPointsRef.current[0].y);
+                    for (let i = 1; i < lassoPointsRef.current.length; i++) {
+                      ctx.lineTo(lassoPointsRef.current[i].x, lassoPointsRef.current[i].y);
+                    }
+                    ctx.strokeStyle = color;
+                    ctx.lineWidth = 2;
+                    ctx.globalAlpha = 0.8;
+                    ctx.stroke();
+                  }
+                }
               }}
               onPointerUp={(e) => {
-                (e.target as HTMLCanvasElement).releasePointerCapture(
-                  e.pointerId
-                );
+                (e.target as HTMLCanvasElement).releasePointerCapture(e.pointerId);
                 setDrawing(false);
                 lastPointRef.current = null;
+                
+                if (paintTool === "lasso" && lassoPointsRef.current.length > 2) {
+                  const canvas = paintCanvasRef.current;
+                  const ctx = canvas?.getContext("2d");
+                  if (canvas && ctx && lassoSnapshotRef.current) {
+                    ctx.putImageData(lassoSnapshotRef.current, 0, 0);
+                    ctx.beginPath();
+                    ctx.moveTo(lassoPointsRef.current[0].x, lassoPointsRef.current[0].y);
+                    for (let i = 1; i < lassoPointsRef.current.length; i++) {
+                      ctx.lineTo(lassoPointsRef.current[i].x, lassoPointsRef.current[i].y);
+                    }
+                    ctx.closePath();
+                    ctx.fillStyle = color;
+                    ctx.globalAlpha = 0.55;
+                    ctx.fill();
+                  }
+                }
+                if (paintTool === "lasso") {
+                  lassoPointsRef.current = [];
+                  lassoSnapshotRef.current = null;
+                }
               }}
               onPointerLeave={() => {
                 setDrawing(false);
                 lastPointRef.current = null;
                 setCursorPos(null);
+                if (paintTool === "lasso" && lassoSnapshotRef.current) {
+                  const canvas = paintCanvasRef.current;
+                  const ctx = canvas?.getContext("2d");
+                  if (ctx) ctx.putImageData(lassoSnapshotRef.current, 0, 0);
+                  lassoPointsRef.current = [];
+                  lassoSnapshotRef.current = null;
+                }
               }}
             />
             {/* Custom brush cursor */}
-            {cursorPos && (
+            {cursorPos && paintTool === "brush" && (
               <div
                 className="absolute rounded-full border-2 border-white/80 pointer-events-none"
                 style={{
@@ -2018,6 +2091,7 @@ function HistoryPanel({
     nano_banana: "Nano Banana",
     veo: "Veo",
     firefly: "Firefly",
+    gpt_image: "GPT Image",
   };
 
   return (
@@ -2591,6 +2665,9 @@ const RULE_LIST_SECTIONS: { path: string; label: string }[] = [
   { path: "targets.firefly.must_include", label: "Firefly — Must include" },
   { path: "targets.firefly.must_avoid", label: "Firefly — Anti-patterns" },
   { path: "targets.firefly.rules", label: "Firefly — Detailed" },
+  { path: "targets.gpt_image.must_include", label: "GPT Image — Must include" },
+  { path: "targets.gpt_image.must_avoid", label: "GPT Image — Anti-patterns" },
+  { path: "targets.gpt_image.rules", label: "GPT Image — Detailed" },
   { path: "overlays.photoshop.must_include", label: "Photoshop — Must include" },
   { path: "overlays.photoshop.must_avoid", label: "Photoshop — Anti-patterns" },
   { path: "overlays.photoshop.rules", label: "Photoshop — Detailed" },
@@ -2872,8 +2949,8 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
     },
     [currentUser.isAdmin, lockedSlugSet]
   );
-  const [software, setSoftware] = useState<Software>("runway");
-  const [mode, setMode] = useState<Mode>("edit_single");
+  const [software, setSoftware] = useState<Software>("other");
+  const [mode, setMode] = useState<Mode>("place_product");
   const [outputTarget, setOutputTarget] = useState<OutputTarget>("nano_banana");
   const [brandSlug, setBrandSlug] = useState<string | null>(null);
   const [brands, setBrands] = useState<BrandProfile[]>([]);
@@ -3039,32 +3116,66 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
     return () => document.removeEventListener("mousedown", handler);
   }, [showTemplates]);
 
-  const softwareDef = SOFTWARES.find((s) => s.value === software)!;
-  const availableModes = getAvailableModes(software);
-  const availableTargetValues = getAvailableTargets(software, mode);
-  const availableTargets = OUTPUT_TARGETS.filter((t) =>
-    availableTargetValues.includes(t.value)
+  // Model is the primary selector — Software and Mode dropdowns are derived from
+  // the chosen Model. Software is filtered to those that support the model;
+  // Mode is filtered to match the model's image/video type AND respect software
+  // constraints (Photoshop is single-image-edit only; video_backdrop is
+  // Runway-only).
+  const availableTargets = OUTPUT_TARGETS;
+  const availableSoftwares = SOFTWARES.filter((s) =>
+    s.availableTargets.includes(outputTarget)
   );
+  const targetDef = OUTPUT_TARGETS.find((t) => t.value === outputTarget)!;
+  const targetIsVideo = targetDef.type === "video";
+
+  const filterModesFor = (sw: Software, isVideo: boolean) =>
+    MODES.filter((m) => {
+      if (m.videoOnly !== isVideo) return false;
+      if (sw === "photoshop" && m.value !== "edit_single") return false;
+      if (m.value === "video_backdrop" && sw !== "runway") return false;
+      return true;
+    });
+
+  const availableModes = filterModesFor(software, targetIsVideo);
+  const softwareDef = SOFTWARES.find((s) => s.value === software)!;
+
+  const pickMode = (modes: typeof MODES, current: Mode): Mode => {
+    if (modes.some((m) => m.value === current)) return current;
+    const preferred = modes.find((m) => m.value === "place_product");
+    return preferred?.value ?? modes[0]?.value ?? current;
+  };
+
+  const handleTargetChange = (next: OutputTarget) => {
+    setOutputTarget(next);
+    const nextTargetDef = OUTPUT_TARGETS.find((t) => t.value === next)!;
+    const nextIsVideo = nextTargetDef.type === "video";
+
+    const nextSoftwares = SOFTWARES.filter((s) =>
+      s.availableTargets.includes(next)
+    );
+    const fallbackSoftware =
+      nextSoftwares.find((s) => s.value === "other")?.value ??
+      nextSoftwares[0]?.value ??
+      software;
+    const nextSoftware = nextSoftwares.some((s) => s.value === software)
+      ? software
+      : fallbackSoftware;
+    if (nextSoftware !== software) setSoftware(nextSoftware);
+
+    const nextModes = filterModesFor(nextSoftware, nextIsVideo);
+    const nextMode = pickMode(nextModes, mode);
+    if (nextMode !== mode) setMode(nextMode);
+  };
 
   const handleSoftwareChange = (next: Software) => {
     setSoftware(next);
-    const nextModes = getAvailableModes(next);
-    const nextMode = nextModes.find((m) => m.value === mode)
-      ? mode
-      : nextModes[0].value;
+    const nextModes = filterModesFor(next, targetIsVideo);
+    const nextMode = pickMode(nextModes, mode);
     if (nextMode !== mode) setMode(nextMode);
-    const nextTargets = getAvailableTargets(next, nextMode);
-    if (!nextTargets.includes(outputTarget)) {
-      setOutputTarget(getDefaultTarget(next, nextMode));
-    }
   };
 
   const handleModeChange = (next: Mode) => {
     setMode(next);
-    const nextTargets = getAvailableTargets(software, next);
-    if (!nextTargets.includes(outputTarget)) {
-      setOutputTarget(getDefaultTarget(software, next));
-    }
   };
 
   const charLimit = getCharLimit(software, outputTarget);
@@ -3532,21 +3643,49 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
   };
 
   const handleHistorySelect = (entry: HistoryEntry) => {
-    const inferredSoftware: Software =
-      entry.output_target === "veo" || entry.output_target === "nano_banana"
-        ? "runway"
-        : "firefly";
-    const allowedModes = getAvailableModes(inferredSoftware);
-    const nextMode = allowedModes.find((m) => m.value === entry.mode)
-      ? entry.mode
-      : allowedModes[0].value;
-    const allowedTargets = getAvailableTargets(inferredSoftware, nextMode);
-    const nextTarget = allowedTargets.includes(entry.output_target)
-      ? entry.output_target
-      : getDefaultTarget(inferredSoftware, nextMode);
+    // Migrate legacy GPT model rows that predate the GPT Image consolidation.
+    const rawTarget = entry.output_target as string;
+    const normalizedTarget: OutputTarget =
+      rawTarget === "gpt_image_1_5" || rawTarget === "gpt_image_2"
+        ? "gpt_image"
+        : (rawTarget as OutputTarget);
+    const targetExists = OUTPUT_TARGETS.some(
+      (t) => t.value === normalizedTarget
+    );
+    const finalTarget: OutputTarget = targetExists
+      ? normalizedTarget
+      : "nano_banana";
+    const finalTargetDef = OUTPUT_TARGETS.find((t) => t.value === finalTarget)!;
+    const finalIsVideo = finalTargetDef.type === "video";
+
+    // Pick a software that hosts this model.
+    const validSoftwares = SOFTWARES.filter((s) =>
+      s.availableTargets.includes(finalTarget)
+    );
+    let inferredSoftware: Software;
+    if (finalTarget === "gpt_image") inferredSoftware = "other";
+    else if (finalTarget === "veo" || finalTarget === "nano_banana")
+      inferredSoftware = "runway";
+    else inferredSoftware = "firefly";
+    if (!validSoftwares.some((s) => s.value === inferredSoftware)) {
+      inferredSoftware =
+        validSoftwares.find((s) => s.value === "other")?.value ??
+        validSoftwares[0]?.value ??
+        "other";
+    }
+
+    // Pick a mode valid for the model+software combination, preferring the
+    // entry's stored mode.
+    const validModes = filterModesFor(inferredSoftware, finalIsVideo);
+    const nextMode: Mode =
+      validModes.find((m) => m.value === entry.mode)?.value ??
+      validModes.find((m) => m.value === "place_product")?.value ??
+      validModes[0]?.value ??
+      (entry.mode as Mode);
+
     setSoftware(inferredSoftware);
     setMode(nextMode);
-    setOutputTarget(nextTarget);
+    setOutputTarget(finalTarget);
     setBrandSlug(entry.brand_slug);
     setInstruction(entry.instruction);
     setGeneratedPrompt(entry.generated_prompt);
@@ -3624,8 +3763,25 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
 
       {/* Main content */}
       <main className="flex-1 max-w-4xl w-full mx-auto px-6 py-8 space-y-6">
-        {/* Row 1: Software + Mode + Output Target */}
+        {/* Row 1: Model + Software + Mode */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label className="text-sm font-medium block mb-1.5">Model</label>
+            <select
+              value={outputTarget}
+              onChange={(e) => handleTargetChange(e.target.value as OutputTarget)}
+              disabled={availableTargets.length <= 1}
+              className="w-full bg-card border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent disabled:opacity-60"
+            >
+              {availableTargets.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+            <p className="text-[11px] text-muted mt-1">Limit: {charLimit.soft}</p>
+          </div>
+
           <div>
             <label className="text-sm font-medium block mb-1.5">Software</label>
             <select
@@ -3633,7 +3789,7 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
               onChange={(e) => handleSoftwareChange(e.target.value as Software)}
               className="w-full bg-card border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent"
             >
-              {SOFTWARES.map((s) => (
+              {availableSoftwares.map((s) => (
                 <option key={s.value} value={s.value}>
                   {s.label}
                 </option>
@@ -3658,24 +3814,6 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
             </select>
           </div>
 
-          <div>
-            <label className="text-sm font-medium block mb-1.5">
-              Output Target (model)
-            </label>
-            <select
-              value={outputTarget}
-              onChange={(e) => setOutputTarget(e.target.value as OutputTarget)}
-              disabled={availableTargets.length <= 1}
-              className="w-full bg-card border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent disabled:opacity-60"
-            >
-              {availableTargets.map((t) => (
-                <option key={t.value} value={t.value}>
-                  {t.label}
-                </option>
-              ))}
-            </select>
-            <p className="text-[11px] text-muted mt-1">Limit: {charLimit.soft}</p>
-          </div>
         </div>
 
         {/* Row 1a: Veo audio toggle */}
