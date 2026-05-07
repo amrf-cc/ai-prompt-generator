@@ -69,15 +69,16 @@ ai-prompt-generator/
 | Animate from single image | `animate_single` | video |
 | Animate first to last frame | `animate_keyframes` | video |
 
-Video modes (`animate_*`) automatically lock the output target to **Veo** only. Image modes show Nano Banana and Firefly.
+Video modes (`animate_*`, `text_to_video`) show **Veo** and **Adobe Firefly** as output targets. Image modes show Nano Banana, Firefly, and GPT Image.
 
 ### Output targets (where the prompt will be pasted)
 
-| Target | Key | Platform the user pastes into |
-|--------|-----|-------------------------------|
-| Nano Banana | `nano_banana` | RunwayML or Google's tools |
-| Veo | `veo` | RunwayML |
-| Adobe Firefly | `firefly` | Firefly web app or Photoshop |
+| Target | Key | Types | Platform the user pastes into |
+|--------|-----|-------|-------------------------------|
+| Nano Banana | `nano_banana` | image | RunwayML or Google's tools |
+| Veo | `veo` | video | RunwayML |
+| Adobe Firefly | `firefly` | image, video | Firefly web app (firefly.adobe.com) or Photoshop |
+| GPT Image | `gpt_image` | image | ChatGPT (web) |
 
 ### Brand profiles
 

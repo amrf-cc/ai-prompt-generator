@@ -51,11 +51,11 @@ export const MODES: { value: Mode; label: string; videoOnly: boolean }[] = [
   },
 ];
 
-export const OUTPUT_TARGETS: { value: OutputTarget; label: string; type: "image" | "video" }[] = [
-  { value: "nano_banana", label: "Nano Banana", type: "image" },
-  { value: "veo", label: "Veo", type: "video" },
-  { value: "firefly", label: "Adobe Firefly", type: "image" },
-  { value: "gpt_image", label: "GPT Image", type: "image" },
+export const OUTPUT_TARGETS: { value: OutputTarget; label: string; type: ("image" | "video")[] }[] = [
+  { value: "nano_banana", label: "Nano Banana", type: ["image"] },
+  { value: "veo", label: "Veo", type: ["video"] },
+  { value: "firefly", label: "Adobe Firefly", type: ["image", "video"] },
+  { value: "gpt_image", label: "GPT Image", type: ["image"] },
 ];
 
 export const SOFTWARES: {
@@ -118,7 +118,7 @@ export function getAvailableTargets(
   const isVideoMode = MODES.find((m) => m.value === mode)!.videoOnly;
   const wantedType: "image" | "video" = isVideoMode ? "video" : "image";
   return OUTPUT_TARGETS.filter(
-    (t) => t.type === wantedType && sw.availableTargets.includes(t.value)
+    (t) => t.type.includes(wantedType) && sw.availableTargets.includes(t.value)
   ).map((t) => t.value);
 }
 

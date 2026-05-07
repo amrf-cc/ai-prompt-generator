@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
 
   const targetEntry = OUTPUT_TARGETS.find((t) => t.value === outputTarget);
   const targetLabel = targetEntry
-    ? `${targetEntry.label} ${targetEntry.type} generation`
+    ? `${targetEntry.label} ${targetEntry.type.join(" & ")} generation`
     : `${outputTarget} generation`;
 
   const softwareLabel = getSoftwareDisplayName(software, outputTarget);

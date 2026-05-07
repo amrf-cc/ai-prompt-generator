@@ -3126,17 +3126,18 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
     s.availableTargets.includes(outputTarget)
   );
   const targetDef = OUTPUT_TARGETS.find((t) => t.value === outputTarget)!;
-  const targetIsVideo = targetDef.type === "video";
+  const targetTypes = targetDef.type;
 
-  const filterModesFor = (sw: Software, isVideo: boolean) =>
+  const filterModesFor = (sw: Software, types: ("image" | "video")[]) =>
     MODES.filter((m) => {
-      if (m.videoOnly !== isVideo) return false;
+      const modeType: "image" | "video" = m.videoOnly ? "video" : "image";
+      if (!types.includes(modeType)) return false;
       if (sw === "photoshop" && m.value !== "edit_single") return false;
       if (m.value === "video_backdrop" && sw !== "runway") return false;
       return true;
     });
 
-  const availableModes = filterModesFor(software, targetIsVideo);
+  const availableModes = filterModesFor(software, targetTypes);
   const softwareDef = SOFTWARES.find((s) => s.value === software)!;
 
   const pickMode = (modes: typeof MODES, current: Mode): Mode => {
@@ -3148,7 +3149,7 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
   const handleTargetChange = (next: OutputTarget) => {
     setOutputTarget(next);
     const nextTargetDef = OUTPUT_TARGETS.find((t) => t.value === next)!;
-    const nextIsVideo = nextTargetDef.type === "video";
+    const nextTypes = nextTargetDef.type;
 
     const nextSoftwares = SOFTWARES.filter((s) =>
       s.availableTargets.includes(next)
@@ -3162,14 +3163,14 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
       : fallbackSoftware;
     if (nextSoftware !== software) setSoftware(nextSoftware);
 
-    const nextModes = filterModesFor(nextSoftware, nextIsVideo);
+    const nextModes = filterModesFor(nextSoftware, nextTypes);
     const nextMode = pickMode(nextModes, mode);
     if (nextMode !== mode) setMode(nextMode);
   };
 
   const handleSoftwareChange = (next: Software) => {
     setSoftware(next);
-    const nextModes = filterModesFor(next, targetIsVideo);
+    const nextModes = filterModesFor(next, targetTypes);
     const nextMode = pickMode(nextModes, mode);
     if (nextMode !== mode) setMode(nextMode);
   };
@@ -3275,8 +3276,24 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
       });
 
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Generation failed");
+        // Body may be empty (e.g. on a body-size limit or upstream crash) or
+        // non-JSON (e.g. an HTML error page). Read it as text first and only
+        // try JSON.parse defensively — otherwise the cryptic "Unexpected end
+        // of JSON input" hides the real HTTP error from the user.
+        const raw = await res.text().catch(() => "");
+        let serverMsg: string | null = null;
+        if (raw) {
+          try {
+            const parsed = JSON.parse(raw) as { error?: string };
+            if (parsed?.error) serverMsg = parsed.error;
+          } catch {
+            // raw was not JSON; show a snippet of it instead
+            serverMsg = raw.slice(0, 300);
+          }
+        }
+        throw new Error(
+          serverMsg ?? `Generation failed (HTTP ${res.status} ${res.statusText})`
+        );
       }
 
       const reader = res.body?.getReader();
@@ -3442,8 +3459,19 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
         });
 
         if (!res.ok) {
-          const data = await res.json();
-          throw new Error(data.error || "Generation failed");
+          const raw = await res.text().catch(() => "");
+          let serverMsg: string | null = null;
+          if (raw) {
+            try {
+              const parsed = JSON.parse(raw) as { error?: string };
+              if (parsed?.error) serverMsg = parsed.error;
+            } catch {
+              serverMsg = raw.slice(0, 300);
+            }
+          }
+          throw new Error(
+            serverMsg ?? `Generation failed (HTTP ${res.status} ${res.statusText})`
+          );
         }
 
         const reader = res.body?.getReader();
@@ -3656,7 +3684,7 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
       ? normalizedTarget
       : "nano_banana";
     const finalTargetDef = OUTPUT_TARGETS.find((t) => t.value === finalTarget)!;
-    const finalIsVideo = finalTargetDef.type === "video";
+    const finalTypes = finalTargetDef.type;
 
     // Pick a software that hosts this model.
     const validSoftwares = SOFTWARES.filter((s) =>
@@ -3676,7 +3704,7 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
 
     // Pick a mode valid for the model+software combination, preferring the
     // entry's stored mode.
-    const validModes = filterModesFor(inferredSoftware, finalIsVideo);
+    const validModes = filterModesFor(inferredSoftware, finalTypes);
     const nextMode: Mode =
       validModes.find((m) => m.value === entry.mode)?.value ??
       validModes.find((m) => m.value === "place_product")?.value ??

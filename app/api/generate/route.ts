@@ -28,6 +28,23 @@ function createClient(apiKey: string): OpenAI {
 }
 
 export async function POST(request: NextRequest) {
+  try {
+    return await handleGenerate(request);
+  } catch (err) {
+    // Catch-all: anything thrown above the streaming Response (request body
+    // parse failure, image compression, prompt builder, brand context I/O,
+    // unexpected runtime error) becomes a clean JSON error so the frontend
+    // never has to parse an empty body.
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[/api/generate] uncaught:", err);
+    return Response.json(
+      { error: `Generation failed: ${message}` },
+      { status: 500 }
+    );
+  }
+}
+
+async function handleGenerate(request: NextRequest) {
   const auth = await requireUser();
   if (auth.error) return auth.error;
 
