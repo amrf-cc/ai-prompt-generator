@@ -9,6 +9,14 @@
 # Set BRAND_RESEED=1 to force-overwrite the locked brand profiles (default:
 # chip-city) from the seed copy. Useful when shipping an updated guideline
 # PDF or new style references.
+#
+# Set CONFIG_RESEED=1 to force-overwrite the locked config files (default:
+# prompt-rules.json, model-preferences.json) from the seed copy. The previous
+# version is saved alongside as `<name>.bak.<timestamp>`. Use this when a new
+# rule block / model fallback ships in the repo and needs to land on the
+# volume — admin edits made via the in-app rule editor will be replaced.
+# `prompt-templates.json` is intentionally excluded so user-saved templates
+# survive a reseed.
 set -euo pipefail
 
 : "${DATA_DIR:=/app/data/data}"
@@ -16,6 +24,7 @@ set -euo pipefail
 : "${CONFIG_DIR:=/app/data/config}"
 : "${UPLOADS_DIR:=/app/data/uploads}"
 : "${LOCKED_BRAND_SLUGS:=chip-city}"
+: "${LOCKED_CONFIG_FILES:=prompt-rules.json model-preferences.json}"
 
 mkdir -p "$DATA_DIR" "$BRANDS_DIR" "$CONFIG_DIR" "$UPLOADS_DIR"
 
@@ -53,9 +62,25 @@ if [ -d "$SEED_CONFIG" ]; then
     [ -f "$src" ] || continue
     name="$(basename "$src")"
     dest="$CONFIG_DIR/$name"
+
     if [ ! -f "$dest" ]; then
       echo "[entrypoint] seeding config: $name"
       cp "$src" "$dest"
+      continue
+    fi
+
+    if [ "${CONFIG_RESEED:-0}" = "1" ]; then
+      # Only force-reseed locked config files so user data (e.g. saved
+      # prompt templates) survives a refresh.
+      case " $LOCKED_CONFIG_FILES " in
+        *" $name "*)
+          ts="$(date +%Y%m%d-%H%M%S)"
+          backup="${dest}.bak.${ts}"
+          echo "[entrypoint] CONFIG_RESEED=1 — refreshing locked config: $name (backup: $(basename "$backup"))"
+          cp "$dest" "$backup"
+          cp "$src" "$dest"
+          ;;
+      esac
     fi
   done
 fi
