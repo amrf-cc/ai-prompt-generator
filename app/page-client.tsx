@@ -3222,6 +3222,41 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
     primaryImages.some((f) => f.paintData) ||
     referenceImages.some((f) => f.paintData);
 
+  // Compress a base64 image client-side to ≤1536px JPEG before sending so
+  // the JSON payload stays well under the server body-size limit.
+  async function compressBase64(base64: string, mimeType: string): Promise<{ base64: string; mimeType: string }> {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const MAX = 1536;
+        let { naturalWidth: w, naturalHeight: h } = img;
+        if (w > MAX || h > MAX) {
+          const scale = MAX / Math.max(w, h);
+          w = Math.round(w * scale);
+          h = Math.round(h * scale);
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d")!;
+        ctx.drawImage(img, 0, 0, w, h);
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.80);
+        resolve({ base64: dataUrl.split(",")[1], mimeType: "image/jpeg" });
+      };
+      img.onerror = () => resolve({ base64, mimeType });
+      img.src = `data:${mimeType};base64,${base64}`;
+    });
+  }
+
+  async function prepareImages(files: UploadedFile[]) {
+    return Promise.all(
+      files.map(async (f) => {
+        const { base64, mimeType } = await compressBase64(f.base64, f.type);
+        return { base64, mimeType, sourceUrl: f.sourceUrl };
+      })
+    );
+  }
+
   const handleGenerate = async () => {
     if (!instruction.trim()) {
       setError("Please describe what you want.");
@@ -3248,6 +3283,12 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
     setShowRefineInput(false);
 
     try {
+      const [compPrimary, compReference] = await Promise.all([
+        prepareImages(primaryImages),
+        mode === "text_to_image" || mode === "text_to_video"
+          ? Promise.resolve([])
+          : prepareImages(referenceImages),
+      ]);
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -3259,19 +3300,8 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
           instruction,
           hasPaintedImages,
           includeAudio: outputTarget === "veo" ? includeAudio : undefined,
-          primaryImages: primaryImages.map((f) => ({
-            base64: f.base64,
-            mimeType: f.type,
-            sourceUrl: f.sourceUrl,
-          })),
-          referenceImages:
-            mode === "text_to_image" || mode === "text_to_video"
-              ? []
-              : referenceImages.map((f) => ({
-                  base64: f.base64,
-                  mimeType: f.type,
-                  sourceUrl: f.sourceUrl,
-                })),
+          primaryImages: compPrimary,
+          referenceImages: compReference,
         }),
       });
 
@@ -3427,6 +3457,12 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
     setCurrentHistoryId(null);
     resetCurrentFeedback();
 
+    const [compPrimary, compReference] = await Promise.all([
+      prepareImages(primaryImages),
+      mode === "text_to_image" || mode === "text_to_video"
+        ? Promise.resolve([])
+        : prepareImages(referenceImages),
+    ]);
     const body = {
       mode,
       software,
@@ -3435,19 +3471,8 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
       instruction,
       hasPaintedImages,
       includeAudio: outputTarget === "veo" ? includeAudio : undefined,
-      primaryImages: primaryImages.map((f) => ({
-        base64: f.base64,
-        mimeType: f.type,
-        sourceUrl: f.sourceUrl,
-      })),
-      referenceImages:
-        mode === "text_to_image" || mode === "text_to_video"
-          ? []
-          : referenceImages.map((f) => ({
-              base64: f.base64,
-              mimeType: f.type,
-              sourceUrl: f.sourceUrl,
-            })),
+      primaryImages: compPrimary,
+      referenceImages: compReference,
     };
 
     const promises = [0, 1, 2].map(async (idx) => {

@@ -4,7 +4,7 @@ const nextConfig: NextConfig = {
   output: "standalone",
   serverExternalPackages: ["better-sqlite3", "pdf-parse", "sharp"],
   experimental: {
-    proxyClientMaxBodySize: "50mb",
+    proxyClientMaxBodySize: "100mb",
   },
   async headers() {
     return [
