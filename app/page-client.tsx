@@ -2096,7 +2096,7 @@ function HistoryPanel({
 
   return (
     <div className="fixed inset-0 bg-black/60 flex justify-end z-40">
-      <div className="w-full max-w-md bg-card border-l border-border h-full flex flex-col">
+      <div className="w-full sm:max-w-md bg-card border-l border-border h-full flex flex-col">
         <div className="flex items-center justify-between p-4 border-b border-border">
           <h2 className="font-semibold">Prompt History</h2>
           <div className="flex items-center gap-2">
@@ -2369,7 +2369,7 @@ function AggTable({ title, rows }: { title: string; rows: InsightsRow[] }) {
   return (
     <section className="space-y-2">
       <h3 className="text-sm font-medium">{title}</h3>
-      <div className="border border-border rounded-lg overflow-hidden">
+      <div className="border border-border rounded-lg overflow-x-auto">
         <table className="w-full text-xs">
           <thead className="bg-card-hover/40 text-muted">
             <tr>
@@ -2502,7 +2502,7 @@ function InsightsPanel({
 
   return (
     <div className="fixed inset-0 bg-black/60 flex justify-end z-40">
-      <div className="w-full max-w-2xl bg-card border-l border-border h-full flex flex-col">
+      <div className="w-full sm:max-w-2xl bg-card border-l border-border h-full flex flex-col">
         <div className="flex items-center justify-between p-4 border-b border-border">
           <div>
             <h2 className="font-semibold">Insights</h2>
@@ -3762,31 +3762,31 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
   return (
     <div className="min-h-screen flex flex-col">
       {/* Header */}
-      <header className="border-b border-border px-6 py-4 flex items-center justify-between shrink-0">
+      <header className="border-b border-border px-3 sm:px-6 py-3 sm:py-4 flex items-center justify-between shrink-0">
         <div>
           <h1 className="text-lg font-semibold">AI Prompt Generator</h1>
           <p className="text-xs text-muted">
             Generate optimized prompts for Nano Banana, Veo, and Firefly
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1.5 sm:gap-3">
           {currentUser.isAdmin && (
             <button
               onClick={() => setShowRuleEditor(true)}
-              className="px-3 py-1.5 text-sm border border-border rounded-lg hover:bg-card-hover transition-colors"
+              className="px-2 sm:px-3 py-1.5 text-xs sm:text-sm border border-border rounded-lg hover:bg-card-hover transition-colors"
             >
               Rules
             </button>
           )}
           <button
             onClick={() => setHistoryOpen(true)}
-            className="px-3 py-1.5 text-sm border border-border rounded-lg hover:bg-card-hover transition-colors"
+            className="px-2 sm:px-3 py-1.5 text-xs sm:text-sm border border-border rounded-lg hover:bg-card-hover transition-colors"
           >
             History
           </button>
           <button
             onClick={() => setInsightsOpen(true)}
-            className="px-3 py-1.5 text-sm border border-border rounded-lg hover:bg-card-hover transition-colors"
+            className="px-2 sm:px-3 py-1.5 text-xs sm:text-sm border border-border rounded-lg hover:bg-card-hover transition-colors"
             title="Aggregate ratings, tags, and provenance"
           >
             Insights
@@ -3815,7 +3815,7 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
       </header>
 
       {/* Main content */}
-      <main className="flex-1 max-w-4xl w-full mx-auto px-6 py-8 space-y-6">
+      <main className="flex-1 max-w-4xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-8 space-y-4 sm:space-y-6">
         {/* Row 1: Model + Software + Mode */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
@@ -4024,7 +4024,7 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
                   Templates
                 </button>
                 {showTemplates && (
-                  <div className="absolute right-0 top-full mt-1 w-72 bg-card border border-border rounded-lg shadow-xl z-20 py-1 max-h-60 overflow-auto">
+                  <div className="absolute right-0 top-full mt-1 w-[min(18rem,calc(100vw-1.5rem))] bg-card border border-border rounded-lg shadow-xl z-20 py-1 max-h-60 overflow-auto">
                     {templates.length === 0 ? (
                       <p className="text-xs text-muted p-3 text-center">
                         No saved templates yet

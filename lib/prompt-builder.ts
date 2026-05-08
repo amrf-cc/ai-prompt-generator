@@ -124,7 +124,7 @@ const MODE_DESCRIPTIONS: Record<Mode, string> = {
     "The user wants to combine multiple images into one cohesive scene. The primary images are the source elements to merge. Write a prompt describing the final unified composition: how the elements relate spatially, the shared lighting, and the unified atmosphere.",
 
   place_product:
-    "The user wants to place a product into a scene. The primary image is the product; reference images show the desired environment or scene. Write a prompt describing the final composited shot: product placement (use compositional language — rule of thirds, foreground/background, corner placement), surface the product rests on, how light falls on it, and the surrounding scene.",
+    "The user wants to place a product into a scene. The primary image is the product; reference images show the desired environment or scene. Write a prompt describing the final composited shot: product placement (use compositional language — rule of thirds, foreground/background, corner placement), surface the product rests on, how light falls on it, and the surrounding scene. CRITICAL: The product must appear EXACTLY as shown in the primary image — do not suggest any modifications to its shape, color, finish, texture, logo, labels, typography, or packaging.",
 
   animate_single:
     "The user wants to animate a single still image into a video (Image to Video). The primary image is the starting frame — it already defines the composition, subject matter, lighting, and style. Your prompt should focus almost exclusively on MOTION: describe how the scene moves, what the camera does, and how subjects act. Do NOT re-describe what is already visible in the image. Only add visual descriptions when introducing new elements, requesting dramatic changes, specifying transformations, or describing interactions between elements.",
@@ -321,6 +321,21 @@ OUTPUT FORMAT — follow exactly:
 (continue for each clip)
 
 Output ONLY the clip markers and prompts. No preamble, no explanation, no other text.`;
+  }
+
+  if (mode === "place_product") {
+    systemPrompt += `\n\n## PRODUCT PRESERVATION — NON-NEGOTIABLE
+The primary image shows the product exactly as it must appear in the final output. The written prompt must describe placing this product into a scene — it must NEVER suggest, imply, or instruct any change to the product itself.
+
+Preserve without exception:
+- Shape and silhouette — do not alter proportions, form, or outline
+- Color — exact hues, values, and finishes (matte, gloss, metallic, transparent)
+- Surface texture and material — packaging substrate, label paper, container material
+- Logo, wordmark, and typographic elements — position, size, color, and rendering
+- Graphic elements — illustrations, patterns, iconography, barcodes, regulatory marks
+- Structural details — caps, closures, seams, embossing, debossing, cutouts
+
+The only things that may differ are the ENVIRONMENT (background, surface, lighting, atmosphere) and the COMPOSITION (where the product sits in the frame). The product itself is immutable — treat it as a fixed asset being photographed, not redesigned.`;
   }
 
   if (brandContext) {
