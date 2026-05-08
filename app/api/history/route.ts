@@ -79,9 +79,8 @@ export async function PATCH(request: NextRequest) {
   if (auth.error) return auth.error;
   try {
     const body = await request.json();
-    const { id, rating, status, tags, notes } = body as {
+    const { id, status, tags, notes } = body as {
       id: number;
-      rating?: number | null;
       status?: HistoryStatus;
       tags?: string[] | null;
       notes?: string | null;
@@ -99,7 +98,6 @@ export async function PATCH(request: NextRequest) {
     }
 
     const patch: Parameters<typeof updateFeedback>[1] = {};
-    if ("rating" in body) patch.rating = rating ?? null;
     if ("status" in body) patch.status = status ?? null;
     if ("tags" in body) patch.tags = tags ?? null;
     if ("notes" in body) patch.notes = notes ?? null;

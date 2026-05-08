@@ -2979,22 +2979,21 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
 
   // Feature: Prompt templates
   const [templates, setTemplates] = useState<
-    { id: string; name: string; instruction: string; created_at: string }[]
+    { id: string; name: string; instruction: string; category: string; created_at: string }[]
   >([]);
   const [showTemplates, setShowTemplates] = useState(false);
   const [showSaveTemplate, setShowSaveTemplate] = useState(false);
   const [templateName, setTemplateName] = useState("");
+  const [templateCategory, setTemplateCategory] = useState("");
 
   // Feature: Prompt variants
   const [variants, setVariants] = useState<string[]>([]);
   const [activeVariant, setActiveVariant] = useState(0);
   const [generatingVariants, setGeneratingVariants] = useState(false);
   const [variantHistoryIds, setVariantHistoryIds] = useState<(number | null)[]>([]);
-  const [variantRatings, setVariantRatings] = useState<(number | null)[]>([]);
 
-  // Feature: Rating + feedback signal
+  // Feature: Feedback signal
   const [currentHistoryId, setCurrentHistoryId] = useState<number | null>(null);
-  const [currentRating, setCurrentRating] = useState<number | null>(null);
   const [currentStatus, setCurrentStatus] = useState<HistoryStatus>(null);
   const [currentTags, setCurrentTags] = useState<string[]>([]);
   const [currentNotes, setCurrentNotes] = useState<string>("");
@@ -3016,7 +3015,6 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
   const generateRef = useRef<() => void>(() => {});
   const variantsRef = useRef<string[]>([]);
   const variantHistoryIdsRef = useRef<(number | null)[]>([]);
-  const variantRatingsRef = useRef<(number | null)[]>([]);
   const activeVariantRef = useRef(0);
   const templateDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -3092,6 +3090,7 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
         } else if (showSaveTemplate) {
           setShowSaveTemplate(false);
           setTemplateName("");
+          setTemplateCategory("");
         } else if (showRefineInput) {
           setShowRefineInput(false);
         }
@@ -3275,9 +3274,7 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
     setVariants([]);
     variantsRef.current = [];
     setVariantHistoryIds([]);
-    setVariantRatings([]);
     variantHistoryIdsRef.current = [];
-    variantRatingsRef.current = [];
     setCurrentHistoryId(null);
     resetCurrentFeedback();
     setShowRefineInput(false);
@@ -3386,9 +3383,7 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
     setVariants([]);
     variantsRef.current = [];
     setVariantHistoryIds([]);
-    setVariantRatings([]);
     variantHistoryIdsRef.current = [];
-    variantRatingsRef.current = [];
     setCurrentHistoryId(null);
     resetCurrentFeedback();
     setShowRefineInput(false);
@@ -3398,7 +3393,7 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
   // ─── Template functions ──────────────────────────────────────
 
   const saveTemplate = async () => {
-    if (!templateName.trim() || !instruction.trim()) return;
+    if (!templateName.trim() || !instruction.trim() || !templateCategory.trim()) return;
     try {
       const res = await fetch("/api/templates", {
         method: "POST",
@@ -3406,12 +3401,14 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
         body: JSON.stringify({
           name: templateName.trim(),
           instruction: instruction.trim(),
+          category: templateCategory.trim(),
         }),
       });
       if (res.ok) {
         const template = await res.json();
         setTemplates((prev) => [...prev, template]);
         setTemplateName("");
+        setTemplateCategory("");
         setShowSaveTemplate(false);
       }
     } catch {
@@ -3448,11 +3445,9 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
     setUsedModel(null);
     variantsRef.current = ["", "", ""];
     variantHistoryIdsRef.current = [null, null, null];
-    variantRatingsRef.current = [null, null, null];
     activeVariantRef.current = 0;
     setVariants(["", "", ""]);
     setVariantHistoryIds([null, null, null]);
-    setVariantRatings([null, null, null]);
     setActiveVariant(0);
     setCurrentHistoryId(null);
     resetCurrentFeedback();
@@ -3563,13 +3558,11 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
     activeVariantRef.current = idx;
     setGeneratedPrompt(variantsRef.current[idx] || "");
     setCurrentHistoryId(variantHistoryIdsRef.current[idx] ?? null);
-    setCurrentRating(variantRatingsRef.current[idx] ?? null);
   };
 
-  // ─── Rating ─────────────────────────────────────────────────────
+  // ─── Feedback ───────────────────────────────────────────────────
 
   const resetCurrentFeedback = () => {
-    setCurrentRating(null);
     setCurrentStatus(null);
     setCurrentTags([]);
     setCurrentNotes("");
@@ -3589,20 +3582,6 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
     } catch {
       // non-critical
     }
-  };
-
-  const handleRate = async (rating: number) => {
-    if (!currentHistoryId) return;
-    const newRating = currentRating === rating ? null : rating;
-    setCurrentRating(newRating);
-    const variantIdx = variantHistoryIdsRef.current.findIndex(
-      (id) => id === currentHistoryId
-    );
-    if (variantIdx !== -1) {
-      variantRatingsRef.current[variantIdx] = newRating;
-      setVariantRatings([...variantRatingsRef.current]);
-    }
-    await patchFeedback({ rating: newRating });
   };
 
   const handleStatus = async (status: HistoryStatus) => {
@@ -3743,7 +3722,6 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
     setInstruction(entry.instruction);
     setGeneratedPrompt(entry.generated_prompt);
     setCurrentHistoryId(entry.id);
-    setCurrentRating(entry.rating);
     setCurrentStatus(entry.status ?? null);
     setCurrentNotes(entry.notes ?? "");
     try {
@@ -4024,36 +4002,52 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
                   Templates
                 </button>
                 {showTemplates && (
-                  <div className="absolute right-0 top-full mt-1 w-[min(18rem,calc(100vw-1.5rem))] bg-card border border-border rounded-lg shadow-xl z-20 py-1 max-h-60 overflow-auto">
+                  <div className="absolute right-0 top-full mt-1 w-[min(22rem,calc(100vw-1.5rem))] bg-card border border-border rounded-lg shadow-xl z-20 py-1 max-h-80 overflow-auto">
                     {templates.length === 0 ? (
                       <p className="text-xs text-muted p-3 text-center">
-                        No saved templates yet
+                        No templates yet
                       </p>
                     ) : (
-                      templates.map((t) => (
-                        <div
-                          key={t.id}
-                          className="flex items-center gap-2 px-3 py-2 hover:bg-card-hover group"
-                        >
-                          <button
-                            onClick={() => {
-                              setInstruction(t.instruction);
-                              setShowTemplates(false);
-                            }}
-                            className="text-sm text-left flex-1 truncate"
-                            title={t.instruction}
-                          >
-                            {t.name}
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deleteTemplate(t.id);
-                            }}
-                            className="text-danger text-xs opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-                          >
-                            x
-                          </button>
+                      Array.from(
+                        templates.reduce((map, t) => {
+                          if (!map.has(t.category)) map.set(t.category, []);
+                          map.get(t.category)!.push(t);
+                          return map;
+                        }, new Map<string, typeof templates>())
+                      ).map(([category, items]) => (
+                        <div key={category}>
+                          <div className="px-3 pt-2.5 pb-1 text-[10px] font-semibold text-muted uppercase tracking-wider">
+                            {category}
+                          </div>
+                          {items.map((t) => (
+                            <div
+                              key={t.id}
+                              className="flex items-center gap-2 px-3 py-1.5 hover:bg-card-hover group"
+                            >
+                              <button
+                                onClick={() => {
+                                  setInstruction((prev) =>
+                                    prev.trim()
+                                      ? prev.trimEnd() + ", " + t.instruction
+                                      : t.instruction
+                                  );
+                                }}
+                                className="text-sm text-left flex-1 truncate"
+                                title={t.instruction}
+                              >
+                                {t.name}
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  deleteTemplate(t.id);
+                                }}
+                                className="text-danger text-xs opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                              >
+                                x
+                              </button>
+                            </div>
+                          ))}
                         </div>
                       ))
                     )}
@@ -4072,32 +4066,50 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
             </div>
           </div>
           {showSaveTemplate && (
-            <div className="flex gap-2 mb-2">
-              <input
-                type="text"
-                value={templateName}
-                onChange={(e) => setTemplateName(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && saveTemplate()}
-                placeholder="Template name..."
-                className="flex-1 bg-background border border-border rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-accent"
-                autoFocus
-              />
-              <button
-                onClick={saveTemplate}
-                disabled={!templateName.trim()}
-                className="px-3 py-1.5 text-xs bg-accent text-white rounded-md hover:bg-accent-hover disabled:opacity-50"
-              >
-                Save
-              </button>
-              <button
-                onClick={() => {
-                  setShowSaveTemplate(false);
-                  setTemplateName("");
-                }}
-                className="px-3 py-1.5 text-xs border border-border rounded-md hover:bg-card-hover"
-              >
-                Cancel
-              </button>
+            <div className="flex flex-col gap-2 mb-2">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={templateName}
+                  onChange={(e) => setTemplateName(e.target.value)}
+                  placeholder="Name..."
+                  className="flex-1 bg-background border border-border rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-accent"
+                  autoFocus
+                />
+                <input
+                  type="text"
+                  value={templateCategory}
+                  onChange={(e) => setTemplateCategory(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && saveTemplate()}
+                  placeholder="Category..."
+                  list="template-categories"
+                  className="flex-1 bg-background border border-border rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-accent"
+                />
+                <datalist id="template-categories">
+                  {Array.from(new Set(templates.map((t) => t.category))).map((cat) => (
+                    <option key={cat} value={cat} />
+                  ))}
+                </datalist>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={saveTemplate}
+                  disabled={!templateName.trim() || !templateCategory.trim()}
+                  className="px-3 py-1.5 text-xs bg-accent text-white rounded-md hover:bg-accent-hover disabled:opacity-50"
+                >
+                  Save
+                </button>
+                <button
+                  onClick={() => {
+                    setShowSaveTemplate(false);
+                    setTemplateName("");
+                    setTemplateCategory("");
+                  }}
+                  className="px-3 py-1.5 text-xs border border-border rounded-md hover:bg-card-hover"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           )}
           <textarea
@@ -4181,33 +4193,6 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
                   >
                     {promptLength} / {charLimit.hard}
                   </span>
-                )}
-                {/* Rating */}
-                {currentHistoryId && !generating && !generatingVariants && (
-                  <div className="flex items-center gap-1 ml-1">
-                    <button
-                      onClick={() => handleRate(1)}
-                      className={`px-1.5 py-0.5 text-xs rounded transition-colors ${
-                        currentRating === 1
-                          ? "bg-green-600/20 text-green-400"
-                          : "text-muted hover:text-green-400"
-                      }`}
-                      title="Good prompt"
-                    >
-                      +
-                    </button>
-                    <button
-                      onClick={() => handleRate(-1)}
-                      className={`px-1.5 py-0.5 text-xs rounded transition-colors ${
-                        currentRating === -1
-                          ? "bg-red-600/20 text-red-400"
-                          : "text-muted hover:text-red-400"
-                      }`}
-                      title="Bad prompt"
-                    >
-                      -
-                    </button>
-                  </div>
                 )}
               </div>
               <div className="flex gap-2">
@@ -4324,8 +4309,6 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
                     {generatingVariants && !v && (
                       <span className="animate-pulse">...</span>
                     )}
-                    {variantRatings[i] === 1 && <span>👍</span>}
-                    {variantRatings[i] === -1 && <span>👎</span>}
                   </button>
                 ))}
               </div>

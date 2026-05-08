@@ -139,13 +139,6 @@ export function getHistoryEntry(id: number) {
   return db.prepare("SELECT * FROM history WHERE id = ?").get(id);
 }
 
-export function updateRating(id: number, rating: number | null) {
-  const db = getDb();
-  return db.prepare("UPDATE history SET rating = ? WHERE id = ?").run(
-    rating,
-    id
-  );
-}
 
 export function updateStatus(id: number, status: HistoryStatus) {
   const db = getDb();
