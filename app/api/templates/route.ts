@@ -61,6 +61,16 @@ const DEFAULT_TEMPLATES: PromptTemplate[] = [
   { id: "default-37", name: "Documentary", instruction: "documentary style, natural and candid", category: "Film Style", created_at: "2024-01-01T00:00:00.000Z" },
   { id: "default-38", name: "Fashion Editorial", instruction: "fashion editorial, high-gloss, stylized", category: "Film Style", created_at: "2024-01-01T00:00:00.000Z" },
   { id: "default-39", name: "Fine Art", instruction: "fine art photography, painterly quality, intentional composition", category: "Film Style", created_at: "2024-01-01T00:00:00.000Z" },
+  // Product Placement
+  { id: "default-40", name: "Center Frame", instruction: "product centered in frame, symmetrical composition", category: "Product Placement", created_at: "2024-01-01T00:00:00.000Z" },
+  { id: "default-41", name: "Bottom-Left Corner", instruction: "product anchored in bottom-left corner, negative space upper-right", category: "Product Placement", created_at: "2024-01-01T00:00:00.000Z" },
+  { id: "default-42", name: "Bottom-Right Corner", instruction: "product anchored in bottom-right corner, negative space upper-left", category: "Product Placement", created_at: "2024-01-01T00:00:00.000Z" },
+  { id: "default-43", name: "Rule of Thirds Left", instruction: "product placed on left third of frame, open space to the right", category: "Product Placement", created_at: "2024-01-01T00:00:00.000Z" },
+  { id: "default-44", name: "Rule of Thirds Right", instruction: "product placed on right third of frame, open space to the left", category: "Product Placement", created_at: "2024-01-01T00:00:00.000Z" },
+  { id: "default-45", name: "Foreground Hero", instruction: "product large in foreground, blurred background scene", category: "Product Placement", created_at: "2024-01-01T00:00:00.000Z" },
+  { id: "default-46", name: "Flat Lay Top-Down", instruction: "flat lay, top-down overhead view, product on surface surrounded by props", category: "Product Placement", created_at: "2024-01-01T00:00:00.000Z" },
+  { id: "default-47", name: "Floating / Levitating", instruction: "product floating mid-air, levitating, clean negative space around it", category: "Product Placement", created_at: "2024-01-01T00:00:00.000Z" },
+  { id: "default-48", name: "In-Hand / In-Use", instruction: "product held in hand, lifestyle in-use context", category: "Product Placement", created_at: "2024-01-01T00:00:00.000Z" },
 ];
 
 function loadTemplates(): PromptTemplate[] {
