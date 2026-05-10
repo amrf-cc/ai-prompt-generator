@@ -12,7 +12,8 @@ export type OutputTarget =
   | "nano_banana"
   | "veo"
   | "firefly"
-  | "gpt_image";
+  | "gpt_image"
+  | "seedance";
 
 export type Software = "photoshop" | "firefly" | "runway" | "other";
 
@@ -56,6 +57,7 @@ export const OUTPUT_TARGETS: { value: OutputTarget; label: string; type: ("image
   { value: "veo", label: "Veo", type: ["video"] },
   { value: "firefly", label: "Adobe Firefly", type: ["image", "video"] },
   { value: "gpt_image", label: "GPT Image", type: ["image"] },
+  { value: "seedance", label: "Seedance 2.0", type: ["video"] },
 ];
 
 export const SOFTWARES: {
@@ -69,9 +71,9 @@ export const SOFTWARES: {
     value: "other",
     label: "Other",
     description:
-      "Use each model's native web app — Gemini (web) for Nano Banana / Veo, ChatGPT (web) for GPT Image, Firefly (web) for Adobe Firefly",
+      "Use each model's native web app — Gemini (web) for Nano Banana / Veo, ChatGPT (web) for GPT Image, Firefly (web) for Adobe Firefly, Higgsfield.ai for Seedance",
     supportsVideo: true,
-    availableTargets: ["nano_banana", "veo", "firefly", "gpt_image"],
+    availableTargets: ["nano_banana", "veo", "firefly", "gpt_image", "seedance"],
   },
   {
     value: "photoshop",
@@ -91,9 +93,9 @@ export const SOFTWARES: {
     value: "runway",
     label: "Runway",
     description:
-      "RunwayML — Nano Banana for images (≤1000 chars), Veo for video (≤2000 chars)",
+      "RunwayML — Nano Banana for images (≤1000 chars), Veo for video (≤2000 chars). Also the default platform for Seedance 2.0 (paste on Higgsfield.ai).",
     supportsVideo: true,
-    availableTargets: ["nano_banana", "veo"],
+    availableTargets: ["nano_banana", "veo", "seedance"],
   },
 ];
 
@@ -166,11 +168,25 @@ export function getCharLimit(
           "moderate detail (~700–1000 characters), ordered scene → subject → key details → constraints — iterate, don't overload",
       };
     }
+    if (target === "seedance") {
+      return {
+        hard: 6000,
+        soft:
+          "800–1500 words — include beat-by-beat choreography, timed shot breakdowns, and a metadata line at the end (Total: 15s / N shots / 16:9)",
+      };
+    }
     // nano_banana, firefly via Gemini/Firefly web app
     return { hard: 1000, soft: "800–1000 characters (use the full budget)" };
   }
   if (target === "veo") {
     return { hard: 2000, soft: "220–290 words / ~1500–1850 characters of dense cinematographic detail" };
+  }
+  if (target === "seedance") {
+    return {
+      hard: 6000,
+      soft:
+        "800–1500 words — include beat-by-beat choreography, timed shot breakdowns, and a metadata line at the end (Total: 15s / N shots / 16:9)",
+    };
   }
   return { hard: 1000, soft: "800–1000 characters (use the full budget)" };
 }
@@ -183,10 +199,12 @@ export function getSoftwareDisplayName(
   const targetLabel = targetEntry?.label ?? target;
   if (software === "photoshop") return "Adobe Photoshop's Generative Fill / Expand";
   if (software === "firefly") return "the Adobe Firefly web app";
+  if (software === "runway" && target === "seedance") return "Higgsfield AI (Seedance 2.0)";
   if (software === "runway") return `RunwayML (${targetLabel})`;
   // software === "other" — infer from the chosen model's provider web app
   if (target === "gpt_image") return "ChatGPT (web)";
   if (target === "firefly") return "the Adobe Firefly web app";
+  if (target === "seedance") return "Higgsfield AI (Seedance 2.0)";
   return "the Gemini web app";
 }
 

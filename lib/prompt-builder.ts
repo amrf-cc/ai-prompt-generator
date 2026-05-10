@@ -38,6 +38,7 @@ interface PromptRules {
     veo: TargetRules;
     firefly: TargetRules;
     gpt_image: TargetRules;
+    seedance: TargetRules;
   };
   overlays: {
     photoshop: OverlayRules;
@@ -52,6 +53,7 @@ const TARGET_RULE_KEY: Record<OutputTarget, TargetRuleKey> = {
   veo: "veo",
   firefly: "firefly",
   gpt_image: "gpt_image",
+  seedance: "seedance",
 };
 
 let cachedRules: PromptRules | null = null;
@@ -71,7 +73,7 @@ export function validateRules(r: unknown): asserts r is PromptRules {
   if (!Array.isArray(rec.global_rules)) throw new Error("prompt-rules.json: global_rules must be an array");
   const targets = rec.targets as Record<string, Record<string, unknown>> | undefined;
   if (!targets) throw new Error("prompt-rules.json: missing targets");
-  for (const key of ["nano_banana", "veo", "firefly", "gpt_image"]) {
+  for (const key of ["nano_banana", "veo", "firefly", "gpt_image", "seedance"]) {
     const t = targets[key];
     if (!t) throw new Error(`prompt-rules.json: missing targets.${key}`);
     for (const field of ["skeleton", "output_format"]) {
@@ -147,6 +149,7 @@ const TARGET_NAMES: Record<OutputTarget, string> = {
   veo: "Google Veo (accessed via RunwayML)",
   firefly: "Adobe Firefly (used in the Firefly web app or Photoshop)",
   gpt_image: "OpenAI GPT Image (accessed via ChatGPT on the web)",
+  seedance: "Seedance 2.0 (accessed via Higgsfield AI at higgsfield.ai)",
 };
 
 const TARGET_SHORT: Record<OutputTarget, string> = {
@@ -154,6 +157,7 @@ const TARGET_SHORT: Record<OutputTarget, string> = {
   veo: "Veo",
   firefly: "Adobe Firefly",
   gpt_image: "GPT Image",
+  seedance: "Seedance 2.0",
 };
 
 function isAudioRule(text: string): boolean {

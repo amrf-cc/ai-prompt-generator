@@ -196,6 +196,56 @@
         "Quality lever: only invoke high-detail / textured-brushstroke / macro-detail vocabulary when the use case actually needs it — otherwise it muddies simpler outputs",
         "For identity-sensitive edits (portraits, branded products, recurring characters), repeat the preserve-list across iterations: 'preserve facial features, preserve outfit, preserve background' — repetition reduces unintended drift"
       ]
+    },
+
+    "seedance": {
+      "skeleton": "[Opening aesthetic line: visual style + film stock + quality]. [Location/environment setup]. [Character introductions]. [Inciting action / first beat]. [Shot-by-shot breakdown with timecodes OR continuous action sequence]. [Closing cinematic instruction]. Total: [duration] / [N shots] / [aspect ratio]",
+      "output_format": "Open with a one-line aesthetic declaration (visual style, film stock, quality). Set location and introduce characters with precise physical detail. Then break the action into numbered shots with timecodes (0–3s, 3–6s…) for Transformations and Animation, or describe one continuous action sequence for Orbs, POVs, and Fights. Add a closing cinematic instruction. End every prompt with a metadata line: 'Total: 15s / [N] shots / 16:9'. The prompt will be pasted directly into Higgsfield AI's Seedance 2.0 video generation interface.",
+      "must_include": [
+        "Metadata line at the very end: 'Total: [duration] / [N] shots / [aspect ratio]' — e.g. 'Total: 15s / 6 shots / 16:9'",
+        "Opening aesthetic line defining visual style, film stock, and quality (e.g. '35mm film quality, ARRI ALEXA aesthetic, photorealistic, grounded realism, professional color grading with slightly desaturated tones')",
+        "Explicit lighting description per shot or scene: source, direction, quality, and color temperature",
+        "Beat-by-beat choreography — exact play-by-play of every action, not vague summaries like 'they fight' or 'she moves'",
+        "Camera behavior specified per shot: what the camera IS doing AND, for POV/Orb/locked shots, what it is NOT doing (no cuts, no zoom, no stabilization)",
+        "For inline VFX: use bracket syntax — [VFX: description] — placed at the exact moment in the action sequence where the effect fires"
+      ],
+      "must_avoid": [
+        "Missing the metadata line — Seedance reads Duration / shots / aspect ratio from the end of every prompt",
+        "Vague choreography ('they fight', 'the creature moves fast') — Seedance executes precisely what is written; give beat-by-beat specifics",
+        "Smooth camera stabilization in Orb or POV formats — these must be explicitly unstabilized with micro-jitters, harsh corrections, and no smoothing",
+        "Multiple competing camera angles or cuts in locked-perspective shots (POVs, Orbs, Fights) — always state explicitly what the camera is NOT doing",
+        "Mixing multi-shot cut structure with continuous single-shot formats — pick one and be explicit about it"
+      ],
+      "vocabulary": {
+        "shot_formats": ["Transformations (multi-shot numbered, escalation arc: calm → threat → trigger → transformation → action → aftermath)", "Orbs (1 shot, first-person POV, hyper-chaotic handheld)", "POV (1 shot, locked perspective, no cuts no zoom, natural head movement)", "Fights (1 shot, choreographed beat-by-beat, clear power mismatch)", "Animation (timed segments with timecodes, 2.35:1 cinematic anamorphic)"],
+        "camera_feel": ["hyper-chaotic handheld", "violent raw movement", "constant micro-jitters", "aggressive head swings", "harsh correction", "unstabilized", "no smoothing", "noticeable focus breathing", "over-rotation", "natural head movement only"],
+        "visual_quality": ["35mm film quality", "ARRI ALEXA aesthetic", "film grain", "depth of field mastery", "sharp focus high detail texture", "photorealistic", "grounded realism", "practical VFX feel", "minimal CGI look", "natural imperfections"],
+        "color_grading": ["professional color grading", "slightly desaturated tones", "cinematic warm grade", "cool blue-grey tones", "high contrast noir", "golden practical light"],
+        "lighting": ["sodium-vapour streetlamp", "harsh directional sunlight", "overcast flat light", "practical interior light", "rim light from background source", "volumetric fog rays"],
+        "timing": ["0–3s:", "3–6s:", "6–9s:", "9–12s:", "12–15s:"],
+        "escalation_arc": ["calm → threat → trigger → transformation → action → aftermath", "setup → tension → escalation → peak → resolution"],
+        "vfx_syntax": ["[VFX: arcing electricity crackles across shoulders]", "[VFX: concussive shockwave shreds rain outward in a radial burst]", "[VFX: dark matter tendrils erupt from collar]"],
+        "aspect_ratios": ["16:9 (standard)", "2.35:1 (cinematic anamorphic — use for Animation format)"]
+      },
+      "examples": [
+        {
+          "instruction": "A hooded figure in a rainy alley transforms into a shadow creature made of electricity, 15 seconds, 6 shots",
+          "good_output": "Cinematic 35mm film quality, ARRI ALEXA aesthetic, photorealistic, grounded realism, professional color grading with slightly desaturated blue-grey tones. Shot 1 (0–3s): A hooded figure stands motionless in a narrow rain-slicked alley at night; a sodium-vapour streetlamp casts orange pools on wet cobblestones; rain falls in thin silver curtains; the figure's breath fogs the cold air; camera holds static at eye level. Shot 2 (3–5s): A low electrical hum rises; the figure's fingers twitch; dark tendrils of shadow coil at the edges of the coat; the camera pushes in slowly toward the hood. Shot 3 (5–8s): The figure's head snaps upward — two pinpoints of white light where the eyes should be; [VFX: arcing electricity crackles across shoulders and dark matter tendrils erupt from the collar]; camera lurches with a violent handheld snap. Shot 4 (8–11s): Full transformation — the body expands into a seven-foot silhouette of compressed shadow and lightning; [VFX: a concussive shockwave shreds the rain outward in a radial burst]; camera slams back in a crash-zoom pull. Shot 5 (11–13s): The creature tears down the alley at impossible speed; deep motion blur; wet ground reflects fractured lightning; camera tracks in a raw unstabilized sprint with harsh corrections and focus breathing. Shot 6 (13–15s): The alley is empty again; rain falls undisturbed; the streetlamp flickers once and steadies; camera holds perfectly still. Total: 15s / 6 shots / 16:9",
+          "why": "Opens with full aesthetic line (35mm, ARRI, desaturated grade). Each shot has timecodes, exact choreography, and camera behavior specified. Inline [VFX:] brackets placed at the precise moment. Clear escalation arc: calm → threat → trigger → full transformation → action → aftermath. Metadata line closes the prompt."
+        }
+      ],
+      "rules": [
+        "Transformations are the highest-performing format: number each shot individually with timecodes and follow a clear escalation arc (calm → threat → trigger → transformation → action → aftermath). Six shots at 15 seconds total is the standard structure.",
+        "Orbs (first-person POV): single continuous shot, 15s. Must be explicitly unstabilized — include 'hyper-chaotic handheld, constant micro-jitters, aggressive head swings, over-rotation, harsh correction, no smoothing'. Hands must be visible in frame. Describe exactly what the viewer experiences, not what they watch.",
+        "POV (locked perspective): single continuous shot, 15s. Explicitly state what the camera avoids: 'no cuts, no zoom, natural head movement only'. This instruction alone is what keeps the perspective locked.",
+        "Fights: single continuous shot, 15s. Define location, clear power mismatch, and describe exact choreography beat by beat — Seedance executes precisely what is written. Use speed-ramping for dramatic beats: 'time dilates to extreme slow motion as [action], then snaps back to real time'.",
+        "Animation: break 15 seconds into timed segments (0–3s, 3–6s, 6–9s…), open with animation aesthetic and physics description, use 2.35:1 anamorphic aspect ratio for cinematic feel.",
+        "For inline VFX: use bracket syntax — [VFX: description] — placed directly inside the action at the exact moment the effect fires. Describe the VFX visually, not as a production instruction.",
+        "Force ultra-realism for creature skin and organic textures by adding 'no 3D, no cartoon, no VFX' after the creature description. This suppresses the model's CGI defaults.",
+        "For comedy shots: describe the main action normally, then add 'add a visual gag in the background' — Seedance invents the gag detail without requiring explicit description.",
+        "Always describe both what the camera IS doing and what it is NOT doing. In perspective-locked formats the negative instruction ('no cuts, no zoom') is as important as the positive one.",
+        "End every prompt with the metadata line: 'Total: [duration] / [N] shots / [aspect ratio]' — e.g. 'Total: 15s / 6 shots / 16:9'"
+      ]
     }
   },
 

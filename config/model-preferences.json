@@ -1,9 +1,9 @@
 {
   "openrouter_models": [
     {
-      "id": "google/gemini-2.5-flash",
-      "name": "Gemini 2.5 Flash",
-      "description": "Fast, cheap, excellent vision — primary cloud model"
+      "id": "anthropic/claude-haiku-4-5",
+      "name": "Claude Haiku 4.5",
+      "description": "Fast, affordable, strong instruction-following — primary cloud model"
     }
   ]
 }
