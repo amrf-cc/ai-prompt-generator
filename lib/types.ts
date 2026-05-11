@@ -13,7 +13,8 @@ export type OutputTarget =
   | "veo"
   | "firefly"
   | "gpt_image"
-  | "seedance";
+  | "seedance"
+  | "gen4_5";
 
 export type Software = "photoshop" | "firefly" | "runway" | "other";
 
@@ -55,6 +56,7 @@ export const MODES: { value: Mode; label: string; videoOnly: boolean }[] = [
 export const OUTPUT_TARGETS: { value: OutputTarget; label: string; type: ("image" | "video")[] }[] = [
   { value: "nano_banana", label: "Nano Banana", type: ["image"] },
   { value: "veo", label: "Veo", type: ["video"] },
+  { value: "gen4_5", label: "Runway Gen 4.5", type: ["video"] },
   { value: "firefly", label: "Adobe Firefly", type: ["image", "video"] },
   { value: "gpt_image", label: "GPT Image", type: ["image"] },
   { value: "seedance", label: "Seedance 2.0", type: ["video"] },
@@ -85,17 +87,17 @@ export const SOFTWARES: {
   {
     value: "firefly",
     label: "Adobe Firefly (web)",
-    description: "Firefly web app — descriptive prompts, ≤1000 characters",
+    description: "Firefly web app — descriptive prompts, ≤1000 characters. Also supports Runway Gen 4.5 for video.",
     supportsVideo: true,
-    availableTargets: ["firefly", "nano_banana", "veo"],
+    availableTargets: ["firefly", "nano_banana", "veo", "gen4_5"],
   },
   {
     value: "runway",
     label: "Runway",
     description:
-      "RunwayML — Nano Banana for images (≤1000 chars), Veo for video (≤2000 chars). Also the default platform for Seedance 2.0 (paste on Higgsfield.ai).",
+      "RunwayML — Nano Banana for images, Gen 4.5 or Veo for video. Also the default platform for Seedance 2.0 (paste on Higgsfield.ai).",
     supportsVideo: true,
-    availableTargets: ["nano_banana", "veo", "seedance"],
+    availableTargets: ["nano_banana", "veo", "gen4_5", "seedance"],
   },
 ];
 
@@ -145,10 +147,13 @@ export function getCharLimit(
     return { hard: 500, soft: "2-4 descriptive sentences (~400 characters)" };
   }
   if (software === "firefly") {
+    if (target === "gen4_5") {
+      return { hard: 5000, soft: "600–750 words / ~3800–4700 characters of dense cinematographic detail" };
+    }
     return { hard: 1000, soft: "800–1000 characters (use the full budget)" };
   }
   if (software === "runway") {
-    if (target === "veo") {
+    if (target === "veo" || target === "gen4_5") {
       return { hard: 5000, soft: "600–750 words / ~3800–4700 characters of dense cinematographic detail" };
     }
     return { hard: 5000, soft: "3800–4700 characters (use the full budget)" };
@@ -178,7 +183,7 @@ export function getCharLimit(
     // nano_banana, firefly via Gemini/Firefly web app
     return { hard: 1000, soft: "800–1000 characters (use the full budget)" };
   }
-  if (target === "veo") {
+  if (target === "veo" || target === "gen4_5") {
     return { hard: 2000, soft: "220–290 words / ~1500–1850 characters of dense cinematographic detail" };
   }
   if (target === "seedance") {
@@ -198,8 +203,10 @@ export function getSoftwareDisplayName(
   const targetEntry = OUTPUT_TARGETS.find((t) => t.value === target);
   const targetLabel = targetEntry?.label ?? target;
   if (software === "photoshop") return "Adobe Photoshop's Generative Fill / Expand";
+  if (software === "firefly" && target === "gen4_5") return "RunwayML (Gen 4.5)";
   if (software === "firefly") return "the Adobe Firefly web app";
   if (software === "runway" && target === "seedance") return "Higgsfield AI (Seedance 2.0)";
+  if (software === "runway" && target === "gen4_5") return "RunwayML (Gen 4.5)";
   if (software === "runway") return `RunwayML (${targetLabel})`;
   // software === "other" — infer from the chosen model's provider web app
   if (target === "gpt_image") return "ChatGPT (web)";
@@ -301,9 +308,16 @@ export interface UploadedFile {
 export interface ModelConfig {
   id: string;
   name: string;
-  description: string;
+  description?: string;
+}
+
+export interface SelectorModel {
+  id: string;
+  name: string;
+  provider: string;
 }
 
 export interface ModelPreferences {
+  selector_models: SelectorModel[];
   openrouter_models: ModelConfig[];
 }

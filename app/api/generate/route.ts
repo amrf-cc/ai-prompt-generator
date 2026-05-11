@@ -62,6 +62,7 @@ async function handleGenerate(request: NextRequest) {
     referenceImages,
     hasPaintedImages,
     includeAudio,
+    selectedModel,
   } = body as {
     mode: Mode;
     software?: Software;
@@ -72,6 +73,7 @@ async function handleGenerate(request: NextRequest) {
     referenceImages: { base64: string; mimeType: string; sourceUrl?: string }[];
     hasPaintedImages?: boolean;
     includeAudio?: boolean;
+    selectedModel?: string;
   };
 
   if (!apiKey) {
@@ -223,7 +225,10 @@ async function handleGenerate(request: NextRequest) {
     text: `=== User instruction ===\n${instruction}`,
   });
 
-  const models = prefs.openrouter_models;
+  const baseModels = prefs.openrouter_models;
+  const models = selectedModel
+    ? [{ id: selectedModel, name: selectedModel }, ...baseModels.filter((m) => m.id !== selectedModel)]
+    : baseModels;
   const CONNECT_TIMEOUT = 300_000; // 5 minutes
   let lastError: string = "";
 

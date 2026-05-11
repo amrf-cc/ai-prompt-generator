@@ -36,6 +36,7 @@ interface PromptRules {
   targets: {
     nano_banana: TargetRules;
     veo: TargetRules;
+    gen4_5: TargetRules;
     firefly: TargetRules;
     gpt_image: TargetRules;
     seedance: TargetRules;
@@ -51,6 +52,7 @@ type TargetRuleKey = keyof PromptRules["targets"];
 const TARGET_RULE_KEY: Record<OutputTarget, TargetRuleKey> = {
   nano_banana: "nano_banana",
   veo: "veo",
+  gen4_5: "gen4_5",
   firefly: "firefly",
   gpt_image: "gpt_image",
   seedance: "seedance",
@@ -73,7 +75,7 @@ export function validateRules(r: unknown): asserts r is PromptRules {
   if (!Array.isArray(rec.global_rules)) throw new Error("prompt-rules.json: global_rules must be an array");
   const targets = rec.targets as Record<string, Record<string, unknown>> | undefined;
   if (!targets) throw new Error("prompt-rules.json: missing targets");
-  for (const key of ["nano_banana", "veo", "firefly", "gpt_image", "seedance"]) {
+  for (const key of ["nano_banana", "veo", "gen4_5", "firefly", "gpt_image", "seedance"]) {
     const t = targets[key];
     if (!t) throw new Error(`prompt-rules.json: missing targets.${key}`);
     for (const field of ["skeleton", "output_format"]) {
@@ -147,6 +149,7 @@ const MODE_DESCRIPTIONS: Record<Mode, string> = {
 const TARGET_NAMES: Record<OutputTarget, string> = {
   nano_banana: "Google Nano Banana (accessed via RunwayML or Google's tools)",
   veo: "Google Veo (accessed via RunwayML)",
+  gen4_5: "Runway Gen 4.5 (Runway's native video generation model, accessed via RunwayML)",
   firefly: "Adobe Firefly (used in the Firefly web app or Photoshop)",
   gpt_image: "OpenAI GPT Image (accessed via ChatGPT on the web)",
   seedance: "Seedance 2.0 (accessed via Higgsfield AI at higgsfield.ai)",
@@ -155,6 +158,7 @@ const TARGET_NAMES: Record<OutputTarget, string> = {
 const TARGET_SHORT: Record<OutputTarget, string> = {
   nano_banana: "Nano Banana",
   veo: "Veo",
+  gen4_5: "Runway Gen 4.5",
   firefly: "Adobe Firefly",
   gpt_image: "GPT Image",
   seedance: "Seedance 2.0",
@@ -277,9 +281,11 @@ ${sections.join("\n\n")}`;
   }
 
   const isImageToVideo =
-    software === "runway" &&
-    outputTarget === "veo" &&
-    (mode === "animate_single" || mode === "animate_keyframes");
+    (mode === "animate_single" || mode === "animate_keyframes") &&
+    (
+      (software === "runway" && (outputTarget === "veo" || outputTarget === "gen4_5")) ||
+      (software === "firefly" && outputTarget === "gen4_5")
+    );
   if (isImageToVideo && rules.overlays.runway_image_to_video.rules.length) {
     const i2v = rules.overlays.runway_image_to_video;
     const sections: string[] = [];

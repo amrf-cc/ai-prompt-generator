@@ -104,6 +104,51 @@
       ]
     },
 
+    "gen4_5": {
+      "skeleton": "Text-to-Video: [Camera] shot of [subject/object] [action] in [environment]. [Supporting component descriptions]. Image-to-Video: The camera [single motion] as [the subject] [action]. [Additional motion detail].",
+      "output_format": "Output a single prompt block. For Text-to-Video: open with a camera shot type, then describe the subject's action, the environment, supporting visual and motion details. For Image-to-Video: focus EXCLUSIVELY on motion — the input image already defines composition, subject, lighting, and style; describe only what should HAPPEN. The prompt will be pasted directly into RunwayML's Gen 4.5 interface.",
+      "must_include": [
+        "Exactly ONE primary camera motion — competing motions produce erratic output",
+        "Active subject-verb action — never passive constructions ('a figure runs' not 'there was a running figure')",
+        "Environment + atmosphere described with clear, observable language (sensory detail, time of day, weather, depth cues)",
+        "Visual style defined explicitly (cinematic, documentary, 35mm film, animation, slow motion, etc.) — for Text-to-Video only"
+      ],
+      "must_avoid": [
+        "Multiple competing camera motions in one prompt — pick ONE primary motion",
+        "Passive or vague verbs ('doing things', 'interacting', 'moving around') — describe the exact action",
+        "Contradictory instructions that conflict with each other",
+        "Over-prompting for Image-to-Video — the input image supplies composition, lighting, and style; re-describing them creates conflicts",
+        "Overloading a single prompt with every requirement — start simple, iterate to refine"
+      ],
+      "vocabulary": {
+        "shot_sizes": ["macro", "extreme close-up", "close-up", "medium", "full", "wide", "extreme wide", "establishing"],
+        "camera_motions": ["static", "pan", "tilt up", "tilt down", "dolly", "push in", "pull back", "tracking", "orbit", "arc", "zoom", "whip pan", "crane", "jib"],
+        "angles": ["aerial", "high angle", "low angle", "bird's eye view", "worm's eye view", "over the shoulder", "POV"],
+        "stabilization": ["handheld (natural shake)", "steadicam (smooth walk)", "gimbal (precise complex movement)", "static (completely still)"],
+        "visual_styles": ["cinematic", "35mm film grain", "documentary handheld", "animation", "slow motion (240fps)", "timelapse", "film noir", "hyperrealistic"],
+        "timing_control": ["[00:00] action A", "[00:02] action B", "[00:04] action C", "then", "finally", "continuous seamless shot"]
+      },
+      "examples": [
+        {
+          "instruction": "A chef flambéing a pan in a restaurant kitchen, dramatic feel",
+          "good_output": "Medium shot of a chef tilting a stainless steel sauté pan toward an open gas flame in a busy restaurant kitchen, a tall column of orange fire surging upward from the alcohol catch. The camera pushes in slowly toward the flame as the chef's white sleeve catches the amber light. Smoke curls toward the extraction hood overhead; kitchen staff blur into motion in the background. Warm practical lighting from pendant lamps and the open flame, shallow depth of field isolating the chef and pan in sharp focus. Cinematic style with 35mm film grain, intimate and ritualistic atmosphere.",
+          "why": "Single camera motion (slow push-in), active subject-verb opening, one clear style (cinematic 35mm), observable environment and atmosphere, positive phrasing throughout, no competing motions."
+        }
+      ],
+      "rules": [
+        "Text-to-Video prompts must contain two essential elements: (1) Visual descriptions — subject, environment, lighting, composition, style, and (2) Motion descriptions — subject action, environmental motion, camera motion, timing and speed",
+        "Use clear, observable descriptions rather than abstract concepts — 'a woman sprints across wet cobblestones' is better than 'an energetic movement sequence'",
+        "Sequential prompting for timing control: use natural language ('X occurs, then Y occurs') or timestamps ('[00:01] X occurs. [00:03] Y occurs.') — ensure each timestamp allows realistic time for the action to complete",
+        "For longer videos: generate the first segment, extract the last frame, then use it as input for the next generation to maintain visual continuity",
+        "Image-to-Video: focus ONLY on motion — the input image defines composition, subject matter, lighting, and style. Describe what should HAPPEN, not what is already visible",
+        "To control individual elements from the source image in I2V, use general references ('the figure', 'the car', 'the object') to isolate them and define their motion",
+        "Omit non-essential components to grant the model creative freedom — over-specifying can constrain natural movement quality",
+        "For static camera: describe the scene motion and add 'The locked-off camera remains perfectly still' to suppress unwanted drift",
+        "If receiving unwanted cuts: increase duration and add 'Continuous, seamless shot' to prevent implicit edits",
+        "Embrace iteration — start with a simple prompt on the most critical motion, then add detail in follow-up generations"
+      ]
+    },
+
     "firefly": {
       "skeleton": "[Subject], [Setting/Scene], [Style or Medium], [Lighting], [Mood/Details]",
       "output_format": "Output a single prompt string using comma-separated descriptors. Use the Firefly formula: [Subject] + [Setting/Scene] + [Style or Medium] + [Lighting] + [Mood/Details]. Never use artist names or branded IP. The prompt will be pasted directly into Adobe Firefly or Photoshop's generative fill panel.",

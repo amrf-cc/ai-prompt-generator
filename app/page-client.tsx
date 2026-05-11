@@ -2952,6 +2952,8 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
   const [software, setSoftware] = useState<Software>("other");
   const [mode, setMode] = useState<Mode>("place_product");
   const [outputTarget, setOutputTarget] = useState<OutputTarget>("nano_banana");
+  const [selectedModel, setSelectedModel] = useState<string>("google/gemini-2.5-flash");
+  const [selectorModels, setSelectorModels] = useState<{ id: string; name: string; provider: string }[]>([]);
   const [brandSlug, setBrandSlug] = useState<string | null>(null);
   const [brands, setBrands] = useState<BrandProfile[]>([]);
   const [instruction, setInstruction] = useState("");
@@ -2970,12 +2972,16 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
   const [mounted, setMounted] = useState(false);
   const [paintTarget, setPaintTarget] = useState<{
     file: UploadedFile;
-    zone: "primary" | "reference";
+    zone: "primary" | "reference" | "first_frame" | "last_frame";
   } | null>(null);
   const [cropTarget, setCropTarget] = useState<{
     file: UploadedFile;
-    zone: "primary" | "reference";
+    zone: "primary" | "reference" | "first_frame" | "last_frame";
   } | null>(null);
+
+  // animate_keyframes: separate first/last frame slots
+  const [firstFrameImage, setFirstFrameImage] = useState<UploadedFile[]>([]);
+  const [lastFrameImage, setLastFrameImage] = useState<UploadedFile[]>([]);
 
   // Feature: Prompt templates
   const [templates, setTemplates] = useState<
@@ -3029,6 +3035,13 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
       .then((r) => r.json())
       .then((data) => {
         if (Array.isArray(data)) setBrands(data);
+      })
+      .catch(() => {});
+
+    fetch("/api/models")
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data.selector_models)) setSelectorModels(data.selector_models);
       })
       .catch(() => {});
 
@@ -3175,6 +3188,17 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
   };
 
   const handleModeChange = (next: Mode) => {
+    if (next === "animate_keyframes" && mode !== "animate_keyframes") {
+      // Transfer existing primary images into first/last slots
+      setFirstFrameImage(primaryImages.slice(0, 1));
+      setLastFrameImage(primaryImages.slice(1, 2));
+      setPrimaryImages([]);
+    } else if (mode === "animate_keyframes" && next !== "animate_keyframes") {
+      // Merge first/last back into primary
+      setPrimaryImages([...firstFrameImage, ...lastFrameImage]);
+      setFirstFrameImage([]);
+      setLastFrameImage([]);
+    }
     setMode(next);
   };
 
@@ -3217,8 +3241,13 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const effectivePrimaryImages =
+    mode === "animate_keyframes"
+      ? [...firstFrameImage, ...lastFrameImage]
+      : primaryImages;
+
   const hasPaintedImages =
-    primaryImages.some((f) => f.paintData) ||
+    effectivePrimaryImages.some((f) => f.paintData) ||
     referenceImages.some((f) => f.paintData);
 
   // Compress a base64 image client-side to ≤1536px JPEG before sending so
@@ -3262,8 +3291,12 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
       return;
     }
     const isTextToMode = mode === "text_to_image" || mode === "text_to_video";
-    if (!isTextToMode && primaryImages.length === 0) {
-      setError("Please upload at least one primary image.");
+    if (!isTextToMode && effectivePrimaryImages.length === 0) {
+      setError(
+        mode === "animate_keyframes"
+          ? "Please upload at least a first-frame image."
+          : "Please upload at least one primary image."
+      );
       return;
     }
 
@@ -3281,7 +3314,7 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
 
     try {
       const [compPrimary, compReference] = await Promise.all([
-        prepareImages(primaryImages),
+        prepareImages(effectivePrimaryImages),
         mode === "text_to_image" || mode === "text_to_video"
           ? Promise.resolve([])
           : prepareImages(referenceImages),
@@ -3299,6 +3332,7 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
           includeAudio: outputTarget === "veo" ? includeAudio : undefined,
           primaryImages: compPrimary,
           referenceImages: compReference,
+          selectedModel,
         }),
       });
 
@@ -3375,6 +3409,8 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
 
   const handleReset = () => {
     setPrimaryImages([]);
+    setFirstFrameImage([]);
+    setLastFrameImage([]);
     setReferenceImages([]);
     setInstruction("");
     setGeneratedPrompt("");
@@ -3433,8 +3469,12 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
       return;
     }
     const isTextToMode = mode === "text_to_image" || mode === "text_to_video";
-    if (!isTextToMode && primaryImages.length === 0) {
-      setError("Please upload at least one primary image.");
+    if (!isTextToMode && effectivePrimaryImages.length === 0) {
+      setError(
+        mode === "animate_keyframes"
+          ? "Please upload at least a first-frame image."
+          : "Please upload at least one primary image."
+      );
       return;
     }
 
@@ -3453,7 +3493,7 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
     resetCurrentFeedback();
 
     const [compPrimary, compReference] = await Promise.all([
-      prepareImages(primaryImages),
+      prepareImages(effectivePrimaryImages),
       mode === "text_to_image" || mode === "text_to_video"
         ? Promise.resolve([])
         : prepareImages(referenceImages),
@@ -3468,6 +3508,7 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
       includeAudio: outputTarget === "veo" ? includeAudio : undefined,
       primaryImages: compPrimary,
       referenceImages: compReference,
+      selectedModel,
     };
 
     const promises = [0, 1, 2].map(async (idx) => {
@@ -3794,8 +3835,8 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
 
       {/* Main content */}
       <main className="flex-1 max-w-4xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-8 space-y-4 sm:space-y-6">
-        {/* Row 1: Model + Software + Mode */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {/* Row 1: Model + Software + Mode + LLM Model */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
           <div>
             <label className="text-sm font-medium block mb-1.5">Model</label>
             <select
@@ -3840,6 +3881,22 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
               {availableModes.map((m) => (
                 <option key={m.value} value={m.value}>
                   {m.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="text-sm font-medium block mb-1.5">LLM Model</label>
+            <select
+              value={selectedModel}
+              onChange={(e) => setSelectedModel(e.target.value)}
+              disabled={generating || selectorModels.length === 0}
+              className="w-full bg-card border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent disabled:opacity-60"
+            >
+              {selectorModels.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.provider} — {m.name}
                 </option>
               ))}
             </select>
@@ -3925,6 +3982,34 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
               accept="image/*,video/*"
               onCrop={(file) => setCropTarget({ file, zone: "primary" })}
             />
+          ) : mode === "animate_keyframes" ? (
+            <>
+              <ImageUploadZone
+                label="First Frame"
+                sublabel="The starting image — where the animation begins"
+                files={firstFrameImage}
+                onFilesChange={(files) => setFirstFrameImage(files.slice(-1))}
+                onPaint={(file) => setPaintTarget({ file, zone: "first_frame" })}
+                onCrop={(file) => setCropTarget({ file, zone: "first_frame" })}
+              />
+              <ImageUploadZone
+                label="Last Frame"
+                sublabel="The ending image — where the animation arrives"
+                files={lastFrameImage}
+                onFilesChange={(files) => setLastFrameImage(files.slice(-1))}
+                onPaint={(file) => setPaintTarget({ file, zone: "last_frame" })}
+                onCrop={(file) => setCropTarget({ file, zone: "last_frame" })}
+              />
+              <ImageUploadZone
+                label="Reference Images/Videos"
+                sublabel="Style or scene references"
+                files={referenceImages}
+                onFilesChange={setReferenceImages}
+                accept="image/*,video/*"
+                onPaint={(file) => setPaintTarget({ file, zone: "reference" })}
+                onCrop={(file) => setCropTarget({ file, zone: "reference" })}
+              />
+            </>
           ) : (
             <>
               <ImageUploadZone
@@ -4491,6 +4576,10 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
               list.map((f) => (f.id === updated.id ? updated : f));
             if (paintTarget.zone === "primary") {
               setPrimaryImages((prev) => apply(prev));
+            } else if (paintTarget.zone === "first_frame") {
+              setFirstFrameImage((prev) => apply(prev));
+            } else if (paintTarget.zone === "last_frame") {
+              setLastFrameImage((prev) => apply(prev));
             } else {
               setReferenceImages((prev) => apply(prev));
             }
@@ -4508,6 +4597,10 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
               list.map((f) => (f.id === updated.id ? updated : f));
             if (cropTarget.zone === "primary") {
               setPrimaryImages((prev) => apply(prev));
+            } else if (cropTarget.zone === "first_frame") {
+              setFirstFrameImage((prev) => apply(prev));
+            } else if (cropTarget.zone === "last_frame") {
+              setLastFrameImage((prev) => apply(prev));
             } else {
               setReferenceImages((prev) => apply(prev));
             }
