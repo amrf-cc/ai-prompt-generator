@@ -46,6 +46,71 @@ function fileToUploadedFile(file: File): Promise<UploadedFile> {
   });
 }
 
+// Compress an image file using canvas before storing in state.
+// Resizes to ≤2048px and re-encodes as JPEG (0.85 quality) when the file is
+// larger than 5 MB or its dimensions exceed 2048px — otherwise passes through
+// unchanged. This keeps browser memory reasonable for large uploads.
+function compressImageFile(file: File): Promise<UploadedFile> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      const img = new Image();
+      img.onerror = () => {
+        // Can't decode as image — store as-is
+        resolve({
+          id: generateId(),
+          name: file.name,
+          type: file.type,
+          size: file.size,
+          preview: dataUrl,
+          base64: dataUrl.split(",")[1],
+        });
+      };
+      img.onload = () => {
+        const MAX = 2048;
+        let { naturalWidth: w, naturalHeight: h } = img;
+        const needsResize = w > MAX || h > MAX;
+        const needsCompress = file.size > 5 * 1024 * 1024;
+        if (!needsResize && !needsCompress) {
+          resolve({
+            id: generateId(),
+            name: file.name,
+            type: file.type,
+            size: file.size,
+            preview: dataUrl,
+            base64: dataUrl.split(",")[1],
+          });
+          return;
+        }
+        if (needsResize) {
+          const scale = MAX / Math.max(w, h);
+          w = Math.round(w * scale);
+          h = Math.round(h * scale);
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
+        const outMime = "image/jpeg";
+        const compressedDataUrl = canvas.toDataURL(outMime, 0.85);
+        const base64 = compressedDataUrl.split(",")[1];
+        resolve({
+          id: generateId(),
+          name: file.name,
+          type: outMime,
+          size: Math.floor((base64.length * 3) / 4),
+          preview: compressedDataUrl,
+          base64,
+        });
+      };
+      img.src = dataUrl;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 // ─── Setup Screen ────────────────────────────────────────────────
 
 function SetupScreen() {
@@ -109,8 +174,8 @@ function ImageUploadZone({
       const newFiles: UploadedFile[] = [];
       for (let i = 0; i < fileList.length; i++) {
         const file = fileList[i];
-        if (file.size > 20 * 1024 * 1024) {
-          alert(`${file.name} is larger than 20MB and will be skipped.`);
+        if (file.size > 50 * 1024 * 1024) {
+          alert(`${file.name} is larger than 50MB and will be skipped.`);
           continue;
         }
         const isVideo = file.type.startsWith("video/");
@@ -118,7 +183,7 @@ function ImageUploadZone({
           const frame = await extractVideoFrame(file);
           if (frame) newFiles.push(frame);
         } else {
-          newFiles.push(await fileToUploadedFile(file));
+          newFiles.push(await compressImageFile(file));
         }
       }
       onFilesChange([...files, ...newFiles]);
