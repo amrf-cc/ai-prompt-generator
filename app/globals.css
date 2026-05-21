@@ -1,17 +1,18 @@
 @import "tailwindcss";
 
 :root {
-  --background: #0a0a0a;
-  --foreground: #ededed;
-  --card: #141414;
-  --card-hover: #1a1a1a;
-  --border: #262626;
-  --border-hover: #404040;
-  --accent: #3b82f6;
-  --accent-hover: #2563eb;
-  --muted: #737373;
+  --background: #030008;
+  --foreground: #f8fafc;
+  --card: rgba(15, 10, 25, 0.45);
+  --card-hover: rgba(25, 18, 40, 0.65);
+  --border: rgba(147, 51, 234, 0.15);
+  --border-hover: rgba(249, 115, 22, 0.3);
+  --accent: #9333ea;
+  --accent-hover: #a855f7;
+  --muted: #a1a1aa;
   --danger: #ef4444;
-  --success: #22c55e;
+  --success: #10b981;
+  --highlight: #f97316;
 }
 
 @theme inline {
@@ -26,35 +27,112 @@
   --color-muted: var(--muted);
   --color-danger: var(--danger);
   --color-success: var(--success);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-highlight: var(--highlight);
+  --font-sans: var(--font-outfit);
+  --font-mono: var(--font-jetbrains);
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
+  background-image: 
+    radial-gradient(circle at 0% 0%, rgba(147, 51, 234, 0.2) 0%, transparent 40%),
+    radial-gradient(circle at 100% 100%, rgba(249, 115, 22, 0.15) 0%, transparent 40%),
+    radial-gradient(circle at 50% 50%, rgba(147, 51, 234, 0.05) 0%, transparent 60%);
+  background-attachment: fixed;
   color: var(--foreground);
-  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  font-family: var(--font-outfit), Arial, Helvetica, sans-serif;
+  font-weight: 500;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
+  margin: 0;
+}
+
+/* Premium Glassmorphism for panels */
+.bg-card {
+  background: var(--card);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.5), inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.bg-card:hover {
+  border-color: rgba(147, 51, 234, 0.3);
+  box-shadow: 0 12px 48px -12px rgba(147, 51, 234, 0.15), inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
+}
+
+/* Premium Button styling */
+button.bg-accent {
+  background: linear-gradient(135deg, var(--accent) 0%, #7e22ce 100%);
+  box-shadow: 0 4px 14px 0 rgba(147, 51, 234, 0.39), inset 0 1px 0 0 rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(147, 51, 234, 0.5);
+  color: white;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  font-weight: 500;
+  border-radius: 12px;
+}
+
+button.bg-accent:hover:not(:disabled) {
+  background: linear-gradient(135deg, var(--accent-hover) 0%, #9333ea 100%);
+  box-shadow: 0 6px 20px rgba(147, 51, 234, 0.5), 0 0 15px rgba(249, 115, 22, 0.3), inset 0 1px 0 0 rgba(255, 255, 255, 0.3);
+  border-color: rgba(249, 115, 22, 0.5);
+  transform: translateY(-1px);
+}
+
+button {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+button:active:not(:disabled) {
+  transform: translateY(1px) scale(0.98);
 }
 
 ::selection {
-  background: var(--accent);
+  background: rgba(249, 115, 22, 0.6);
   color: white;
 }
 
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: rgba(0, 0, 0, 0.2);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 3px;
+  background: rgba(147, 51, 234, 0.4);
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--border-hover);
+  background: rgba(249, 115, 22, 0.6);
+}
+
+/* Inputs and textareas */
+input, textarea, select {
+  background-color: rgba(10, 5, 20, 0.6) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--foreground) !important;
+  transition: all 0.3s ease;
+  border-radius: 10px !important;
+}
+
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  border-color: var(--highlight) !important;
+  box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.2), inset 0 1px 0 0 rgba(255, 255, 255, 0.05) !important;
+}
+
+/* Animated Title Gradient */
+.text-gradient {
+  background: linear-gradient(135deg, #a855f7 0%, #f97316 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-fill-color: transparent;
 }

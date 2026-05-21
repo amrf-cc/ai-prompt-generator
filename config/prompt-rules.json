@@ -291,6 +291,148 @@
         "Always describe both what the camera IS doing and what it is NOT doing. In perspective-locked formats the negative instruction ('no cuts, no zoom') is as important as the positive one.",
         "End every prompt with the metadata line: 'Total: [duration] / [N] shots / [aspect ratio]' — e.g. 'Total: 15s / 6 shots / 16:9'"
       ]
+    },
+
+    "flux2": {
+      "skeleton": "[Scene/setting in natural prose]. [Subject with concrete materials and pose]. [Action or interaction]. [Lighting and atmosphere]. [Style/medium and any quoted text].",
+      "output_format": "Output a single prompt as a clean prose paragraph (2–5 sentences). FLUX.2 follows natural-language descriptions reliably — write what you would say to a photographer, not a stacked keyword list. Be specific about materials, textures, lighting, and composition, but let the sentences flow. Place any literal text in double quotes — FLUX.2 has industry-leading text rendering and will reproduce quoted typography accurately. The prompt is sent directly to the FLUX.2 model.",
+      "must_include": [
+        "A clear scene/setting sentence to anchor the composition",
+        "Concrete subject description with named materials, surfaces, or textures",
+        "An explicit lighting description (source, direction, quality, color temperature)",
+        "A single committed medium (photograph, render, illustration) — FLUX.2 commits hard to whichever you name first",
+        "Literal text in double quotes when text should appear in the image, with typography specified inline"
+      ],
+      "must_avoid": [
+        "Long keyword-stacked prompts that read like SEO tags — FLUX.2 prefers complete sentences",
+        "Stacking 3+ style references — FLUX.2 collapses style stacking into a muddy average; pick one medium and at most one adjective style",
+        "Vague camera/lens jargon when it adds no concrete information ('shot on a camera') — only specify when it matters",
+        "Mentioning multiple conflicting mediums (e.g. 'photograph in oil-painting style') — commit to one",
+        "Negative phrasing ('no people') — describe the desired scene positively instead"
+      ],
+      "vocabulary": {
+        "mediums": ["photograph", "photorealistic", "studio photograph", "documentary photograph", "editorial photograph", "3D render", "physically based render", "octane render", "watercolor", "ink wash", "oil painting", "vector illustration", "flat illustration"],
+        "lighting": ["soft window light", "directional sunlight", "golden hour backlighting", "studio softbox", "rim lighting", "side lighting", "high-key", "low-key", "chiaroscuro", "practical interior light", "overcast diffuse"],
+        "materials": ["brushed steel", "weathered oak", "polished marble", "matte ceramic", "frosted glass", "supple leather", "raw concrete", "anodized aluminum", "natural cotton", "satin", "velvet", "terracotta"],
+        "composition": ["close-up", "medium shot", "wide shot", "full body", "eye-level", "low angle", "high angle", "overhead", "rule of thirds", "centered", "shallow depth of field"],
+        "typography": ["bold sans-serif", "thin serif display", "monospaced", "all caps", "italic", "hand-lettered", "neon tube", "embossed metal", "drop shadow"],
+        "authenticity_cues": ["natural skin texture", "subtle film grain", "real surface imperfection", "candid", "unposed", "documentary-style"]
+      },
+      "examples": [
+        {
+          "instruction": "A neon sign above a small ramen shop at night, photorealistic",
+          "good_output": "A narrow back-alley ramen shop at night with steam rolling out of a half-open sliding door. A glowing pink-and-white neon sign hangs above the entrance and clearly spells \"RAMEN\" in a bold hand-lettered display face, with a smaller cyan neon strip below reading \"OPEN\". Rain has slicked the asphalt outside, mirroring the sign in soft pink reflections; a single cyclist passes in the background, slightly blurred. Shot as a photograph with shallow depth of field and natural film grain, warm practical light from the shop interior and cool blue ambient light from the night sky.",
+          "why": "Single committed medium (photograph), natural-prose sentences instead of keyword stacking, literal text in double quotes with typography described inline, concrete materials and lighting, no conflicting style references."
+        }
+      ],
+      "rules": [
+        "FLUX.2 follows full sentences more reliably than keyword strings — write the way you would describe the shot to a photographer or art director",
+        "FLUX.2 has industry-leading text rendering — put any literal text inside double quotes and describe the typography (face, weight, color, surface, placement) in the same sentence",
+        "FLUX.2 commits hard to the first medium you name — choose one ('photograph', '3D render', 'watercolor', 'flat vector illustration') and stay with it for the entire prompt",
+        "Be specific about materials and surfaces — FLUX.2 renders named materials (brushed steel, weathered oak, frosted glass) far more reliably than generic nouns",
+        "Lighting is the single most impactful detail — name the source, direction, quality, and color temperature in every prompt",
+        "Limit style references to one medium plus at most one adjective style (e.g. 'editorial photograph with subtle film grain'). Stacking three or more style references muddies the output",
+        "For photoreal output, include explicit authenticity cues: 'natural skin texture', 'subtle film grain', 'real surface imperfection'",
+        "When referencing multiple input images, identify each by index ('image 1', 'image 2') and state explicitly how they should interact",
+        "Use positive phrasing only — describe what should appear, never what should not"
+      ]
+    },
+
+    "kling": {
+      "skeleton": "[Subject + active verb action], [Scene/environment], [Camera motion + framing], [Lighting + atmosphere], [Style/aesthetic]",
+      "output_format": "Output a single comma-separated prompt block following Kling's subject + action + scene grammar. Open with the subject and a strong active verb, then describe the environment, camera motion, lighting, and visual style. Kling responds well to clear comma-separated clauses rather than long flowing sentences. Specify exactly ONE primary camera motion. The prompt is sent directly to the Kling model.",
+      "must_include": [
+        "Subject + active verb opening clause (e.g. 'a chef tilts a pan' — never passive)",
+        "Environment described with named materials, time of day, weather, or depth cues",
+        "Exactly ONE primary camera motion (push in, pull back, orbit, tracking, static, etc.)",
+        "Lighting source, direction, and color temperature",
+        "Style anchor stated upfront (cinematic, anime, documentary, semi-realistic, 35mm film, etc.)"
+      ],
+      "must_avoid": [
+        "Multiple competing camera motions in one prompt — Kling will improvise and the motion becomes chaotic",
+        "Passive constructions ('there is a figure standing') — Kling needs an active subject + verb to anchor the motion",
+        "Stacking conflicting style references — pick one anchor style (cinematic OR anime OR documentary), not all three",
+        "Vague action verbs ('moves', 'interacts', 'does things') — Kling executes literal action and needs the exact verb",
+        "Generic environment ('a room', 'a city') — name surfaces and atmospheric detail so Kling can ground the shot"
+      ],
+      "vocabulary": {
+        "shot_sizes": ["extreme close-up", "close-up", "medium", "full", "wide", "extreme wide", "establishing"],
+        "camera_motions": ["static", "push in", "pull back", "pan left", "pan right", "tilt up", "tilt down", "dolly", "tracking", "orbit", "arc", "crane", "handheld follow"],
+        "angles": ["eye-level", "low angle", "high angle", "aerial", "POV", "over the shoulder"],
+        "subject_action_verbs": ["walks", "runs", "leaps", "reaches", "pours", "lifts", "spins", "turns", "tilts", "gestures", "embraces", "draws", "throws"],
+        "speed_control": ["natural speed", "slow motion 120fps", "slow motion 240fps", "speed ramp from slow to real time", "time dilation on impact"],
+        "styles": ["cinematic", "anime (cel-shaded, vibrant)", "semi-realistic illustration", "35mm film", "documentary handheld", "music video", "fantasy painterly", "wuxia", "hyperrealistic"],
+        "lighting": ["golden hour backlight", "blue-hour ambient", "neon practical", "soft window light", "harsh directional sun", "volumetric fog rays", "low-key chiaroscuro", "high-key studio"],
+        "audio": ["ambient soundscape", "dialogue (exact lines or topic)", "Foley (footsteps, fabric rustle)", "music style", "mechanical sounds"]
+      },
+      "examples": [
+        {
+          "instruction": "A swordsman in a bamboo grove draws his blade in a wuxia-style slow-motion scene",
+          "good_output": "A lone swordsman in a black silk robe steps forward and unsheathes a curved blade, bamboo grove at dawn, slow tracking shot from his left side at eye level, mist coiling between the green stalks, scattered shafts of cool blue-hour light cutting through the canopy, slow motion 240fps with a brief speed ramp back to real time as the blade clears the scabbard, fantasy painterly wuxia style with soft film grain and shallow depth of field, no subtitles",
+          "why": "Subject + active verb opening ('swordsman steps forward and unsheathes'), single camera motion (slow tracking from left), comma-separated clauses, single committed style (wuxia painterly), exact speed control (240fps + speed ramp), explicit lighting (blue-hour shafts), no competing motions."
+        }
+      ],
+      "rules": [
+        "Kling responds best to comma-separated clauses with a clear subject + active verb up front — write like a structured shot description, not flowing prose",
+        "Specify exactly ONE primary camera motion per prompt — Kling has strong native motion control but improvises chaotically when multiple motions compete",
+        "Kling is particularly strong with action sequences, anime, wuxia, and semi-realistic styles — pick the style anchor explicitly so it commits",
+        "For first-and-last-frame generations (Kling v3.0 Pro/Std), describe the motion path that bridges the two frames; do not re-describe static elements that appear identically in both",
+        "Kling supports native audio on v3.0 Pro and Std — when audio is enabled, name the ambient soundscape, dialogue (exact lines or topic), Foley, and music style; when disabled, omit audio entirely",
+        "Use speed ramping for dramatic beats: 'slow motion 240fps, ramping back to real time as X happens' — Kling executes timed speed changes reliably",
+        "For static camera, write the subject motion and add 'locked-off camera, no drift' — this is the cue Kling recognizes",
+        "Lighting must be named explicitly (source, direction, color temperature) — Kling will not infer cinematic lighting from a flat description",
+        "Add 'no subtitles' at the end if you do not want overlaid text in the video"
+      ]
+    },
+
+    "gemini_image": {
+      "skeleton": "[Scene/setting in natural language]. [Subject with concrete materials and pose]. [Composition + lighting + medium]. [Constraints — what to preserve, literal text in quotes, what must not appear stated positively].",
+      "output_format": "Output a single prompt as natural-language prose (one or two paragraphs). Gemini is a conversational multimodal model — describe what you want the way you would describe a photo to a friend, with concrete detail. Use a consistent order: scene → subject → composition/lighting/medium → constraints. For edits, state explicitly what changes and what must stay the same. Put any literal text inside double quotes with typography specified. The prompt is sent directly to the Gemini image model.",
+      "must_include": [
+        "A natural-language opening that names the scene or setting in one sentence",
+        "Concrete materials, textures, and surfaces for the subject (not vague nouns)",
+        "Explicit framing/composition (close-up, medium, wide, eye-level, low-angle, etc.) and lighting cue",
+        "A single committed medium (photograph, illustration, 3D render, watercolor); for photoreal output use the word 'photorealistic' plus an authenticity cue",
+        "Explicit preservation instructions for edits ('keep the rest of the scene unchanged', 'preserve identity', 'do not alter the background')",
+        "Literal text rendered exactly: quoted in double quotes with typography (face, weight, color, placement) specified"
+      ],
+      "must_avoid": [
+        "Stacking conflicting style references — pick one medium and at most one or two style modifiers",
+        "Negative phrasing of what should NOT appear — describe the desired state positively instead",
+        "Abstract or evaluative language without concrete textures, materials, or composition ('beautiful', 'amazing', 'cool')",
+        "Conflicting medium signals (e.g. 'photograph in oil-painting style') — commit to one medium",
+        "Re-describing every visible element when editing an image — Gemini follows targeted edit instructions reliably; redundant description creates conflicts",
+        "Long camera-jargon stacks ('85mm f/1.4 ARRI ALEXA') when the use case is not cinematic — Gemini does not need them and they can constrain the output"
+      ],
+      "vocabulary": {
+        "framing_perspective": ["close-up", "medium shot", "wide shot", "full body", "eye-level", "low-angle", "high-angle", "overhead", "rule of thirds", "centered composition"],
+        "lighting": ["soft natural light", "directional sunlight", "golden hour backlighting", "studio softbox", "rim lighting", "side lighting", "diffused window light", "high-key", "low-key", "chiaroscuro"],
+        "authenticity_cues": ["candid", "unposed", "natural skin texture", "real surface imperfection", "subtle film grain", "documentary-style"],
+        "mediums": ["photograph", "photorealistic", "3D render", "physically based render", "watercolor", "ink wash", "oil painting", "vector illustration", "flat illustration", "isometric render", "infographic", "diagram"],
+        "materials": ["brushed steel", "weathered oak", "polished marble", "matte ceramic", "frosted glass", "rough linen", "supple leather", "raw concrete", "anodized aluminum", "natural cotton"],
+        "typography": ["bold sans-serif", "serif display face", "monospaced", "all caps", "small caps", "drop shadow", "outlined letters", "centered", "bottom-aligned"],
+        "edit_invariants": ["preserve identity", "keep everything else the same", "do not change the background", "match the original lighting", "preserve facial features", "preserve outfit"],
+        "multi_image_refs": ["image 1", "image 2", "the first reference", "the second reference"]
+      },
+      "examples": [
+        {
+          "instruction": "Edit a portrait so the subject is now wearing a navy wool peacoat in front of a snowy mountain, photorealistic",
+          "good_output": "A waist-up portrait set against a snowy mountain ridge at golden hour, with soft pink alpenglow on distant peaks. The subject (preserve their face, hair, and expression exactly) now wears a heavy navy wool peacoat with brass buttons and a wide notched lapel, paired with a charcoal cashmere scarf. Photorealistic, medium shot at eye level, shallow depth of field, soft directional sunlight from the upper left with a gentle rim light along the right shoulder, subtle film grain and natural skin texture. Keep the head pose, lighting direction, and overall composition the same as the source image; do not change the subject's identity.",
+          "why": "Natural-language prose ordered scene → subject → composition/lighting/medium → constraints; concrete materials (navy wool, brass buttons, cashmere); explicit preservation list (face, hair, expression, head pose, identity); single committed medium (photorealistic) plus authenticity cues (film grain, skin texture); positive phrasing throughout."
+        }
+      ],
+      "rules": [
+        "Gemini is a conversational multimodal model — write the prompt the way you would describe the picture to a person, in full sentences, not in stacked keywords",
+        "Pick ONE medium and commit ('photorealistic', '3D render', 'watercolor', 'flat illustration'). Mixing mediums in a single prompt produces visible blending artifacts",
+        "For photoreal output, include the literal word 'photorealistic' and at least one authenticity cue (candid, unposed, natural skin texture, subtle film grain)",
+        "For edits, state explicitly what must change and what must stay the same: 'preserve identity', 'keep the background unchanged', 'match the original lighting'. Repeat the preserve-list across iterations to prevent drift",
+        "Gemini has strong text rendering — put literal text in double quotes and specify typography (face, weight, color, placement). For tricky words, spell them out letter-by-letter in the prompt",
+        "When referencing multiple input images, identify each by index ('image 1', 'image 2') and describe how they should interact — do not assume the model will infer the relationship",
+        "Use concrete, descriptive language: name materials, textures, framing, and lighting. Replace evaluative words ('beautiful', 'cool') with the visual properties that produce that impression",
+        "Use positive framing only — describe what should appear, not what should NOT appear",
+        "Mention the intended use case when relevant ('for a slide', 'for a UI mock', 'for an editorial cover') — this sets the model's mode and improves layout decisions",
+        "Iterate with small follow-ups rather than overloading one prompt — Gemini handles single-change refinements much more reliably than a giant catch-all prompt"
+      ]
     }
   },
 

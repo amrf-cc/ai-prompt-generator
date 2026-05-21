@@ -3,11 +3,10 @@ import OpenAI from "openai";
 import fs from "fs";
 import path from "path";
 import type {
-  Software,
   OutputTarget,
   ModelPreferences,
 } from "@/lib/types";
-import { getCharLimit, getSoftwareDisplayName, OUTPUT_TARGETS } from "@/lib/types";
+import { getCharLimit, OUTPUT_TARGETS } from "@/lib/types";
 import { CONFIG_DIR } from "@/lib/paths";
 import { requireUser } from "@/lib/auth-helpers";
 
@@ -38,13 +37,13 @@ export async function POST(request: NextRequest) {
   const {
     currentPrompt,
     refinement,
-    software,
     outputTarget,
+    charBudget,
   } = body as {
     currentPrompt: string;
     refinement: string;
-    software: Software;
     outputTarget: OutputTarget;
+    charBudget?: number;
   };
 
   if (!apiKey) {
@@ -61,18 +60,20 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const charLimit = getCharLimit(software, outputTarget);
+  const charLimit = getCharLimit(outputTarget);
+  const effectiveHard = charBudget ? Math.min(charBudget, charLimit.hard) : charLimit.hard;
+  const effectiveSoft = charBudget
+    ? `${Math.round(effectiveHard * 0.85)}–${effectiveHard} characters`
+    : charLimit.soft;
 
   const targetEntry = OUTPUT_TARGETS.find((t) => t.value === outputTarget);
   const targetLabel = targetEntry
     ? `${targetEntry.label} ${targetEntry.type.join(" & ")} generation`
     : `${outputTarget} generation`;
 
-  const softwareLabel = getSoftwareDisplayName(software, outputTarget);
+  const systemPrompt = `You are a prompt editor. You are refining an AI generation prompt for ${targetLabel}, used in this app's built-in generator.
 
-  const systemPrompt = `You are a prompt editor. You are refining an AI generation prompt for ${targetLabel}, used in ${softwareLabel}.
-
-Aim for ${charLimit.soft}. The hard ceiling is ${charLimit.hard} characters — stay under it, but use most of the available room. Don't strip detail unless the user's refinement explicitly asks for that; a short, sparse prompt is a failure when the platform accepts much more.
+Aim for ${effectiveSoft}. The hard ceiling is ${effectiveHard} characters — stay under it, but use most of the available room. Don't strip detail unless the user's refinement explicitly asks for that; a short, sparse prompt is a failure when the platform accepts much more.
 
 Output ONLY the refined prompt — no preamble, no explanation, no markdown formatting, no quotes around the prompt, no labels like "Here is the refined prompt:". Just the prompt text.`;
 

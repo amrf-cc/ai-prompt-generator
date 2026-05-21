@@ -1,8 +1,8 @@
-# AI Prompt Generator
+# Wondr Forge
 
-Generate optimized, production-ready prompts for **Nano Banana** (image), **Veo** (video), and **Adobe Firefly** (image). Upload images, describe your intent, and get polished prompts ready to paste into your tool of choice.
+Forge AI images and videos with brand-aware prompts. Upload references, pick a product or brand, describe your intent — and either copy the polished prompt into the tool of your choice or render the final image/video directly in the app.
 
-This app analyzes uploaded images using free vision models via OpenRouter and outputs prompts tuned to each platform's strengths. It does NOT generate images or videos — you copy the prompt into Runway, Firefly, etc.
+Wondr Forge analyzes uploaded images using vision models via OpenRouter, writes prompts tuned to each target platform's strengths (Nano Banana, Veo, Runway Gen 4.5, Adobe Firefly, GPT Image, Seedance 2.0), and can call OpenRouter's media models (FLUX, GPT-5 Image, Gemini 3 Pro Image, Veo, Kling, Seedance and more) to produce the final image or video without leaving the app.
 
 ## Setup
 

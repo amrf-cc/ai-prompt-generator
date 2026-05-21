@@ -1,0 +1,12 @@
+{
+  "products": [
+    {
+      "id": "chocolate-raspberry-cheesecake-cookie",
+      "name": "Chocolate Raspberry Cheesecake Cookie",
+      "filename": "chocolate-raspberry-cheesecake-cookie.png",
+      "categories": [
+        "Cookies"
+      ]
+    }
+  ]
+}

@@ -5,25 +5,95 @@ import { signOut } from "next-auth/react";
 import type {
   Mode,
   OutputTarget,
-  Software,
   BrandProfile,
   BrandVoice,
   BrandVisual,
   BrandLegal,
+  ProductAsset,
+  ProductImage,
   UploadedFile,
   HistoryEntry,
   HistoryStatus,
+  MediaModel,
 } from "@/lib/types";
+
+interface ClientProductPick {
+  productId: string;
+  productName: string;
+  filename: string;
+  label: string;
+  description?: string;
+  reason: string;
+  picked: boolean;
+}
 import {
   MODES,
   OUTPUT_TARGETS,
-  SOFTWARES,
   FEEDBACK_TAGS,
   getCharLimit,
 } from "@/lib/types";
 
+const IMAGE_MODELS: MediaModel[] = [
+  { id: "openrouter/auto", name: "Auto", provider: "OpenRouter", tier: "auto", priceNote: "Best available", supportsImageInput: true, textOutput: true, promptTarget: "nano_banana" },
+  { id: "openai/gpt-5-image", name: "GPT-5 Image", provider: "OpenAI", tier: "pro", priceNote: "$10/M", supportsImageInput: true, textOutput: true, promptTarget: "gpt_image" },
+  { id: "openai/gpt-5.4-image-2", name: "GPT-5.4 Image 2", provider: "OpenAI", tier: "pro", priceNote: "$8/M in · $15/M out", supportsImageInput: true, textOutput: true, promptTarget: "gpt_image" },
+  { id: "google/gemini-3-pro-image-preview", name: "Gemini 3 Pro", provider: "Google", tier: "pro", priceNote: "$2/M in · $12/M out", supportsImageInput: true, textOutput: true, promptTarget: "gemini_image" },
+  { id: "black-forest-labs/flux.2-max", name: "FLUX.2 Max", provider: "Black Forest Labs", tier: "pro", priceNote: "$0.07/MP", supportsImageInput: false, textOutput: false, promptTarget: "flux2" },
+  { id: "black-forest-labs/flux.2-pro", name: "FLUX.2 Pro", provider: "Black Forest Labs", tier: "pro", priceNote: "$0.03/MP", supportsImageInput: false, textOutput: false, promptTarget: "flux2" },
+  { id: "google/gemini-2.5-flash-image", name: "Gemini 2.5 Flash", provider: "Google", tier: "budget", priceNote: "$0.30/M", supportsImageInput: true, textOutput: true, promptTarget: "gemini_image" },
+  { id: "google/gemini-3.1-flash-image-preview", name: "Gemini 3.1 Flash", provider: "Google", tier: "budget", priceNote: "$0.50/M", supportsImageInput: true, textOutput: true, promptTarget: "gemini_image" },
+  { id: "openai/gpt-5-image-mini", name: "GPT-5 Mini", provider: "OpenAI", tier: "budget", priceNote: "$2.50/M", supportsImageInput: true, textOutput: true, promptTarget: "gpt_image" },
+  { id: "black-forest-labs/flux.2-klein-4b", name: "FLUX.2 Klein", provider: "Black Forest Labs", tier: "budget", priceNote: "$0.014/MP", supportsImageInput: false, textOutput: false, promptTarget: "flux2" },
+  { id: "bytedance-seed/seedream-4.5", name: "Seedream 4.5", provider: "ByteDance", tier: "budget", priceNote: "$0.04/img", supportsImageInput: false, textOutput: false, promptTarget: "nano_banana" },
+  { id: "sourceful/riverflow-v2-fast", name: "Riverflow V2", provider: "Sourceful", tier: "budget", priceNote: "$0.02–0.04/img", supportsImageInput: false, textOutput: false, promptTarget: "nano_banana" },
+];
+
+const VIDEO_MODELS: MediaModel[] = [
+  { id: "kwaivgi/kling-v3.0-pro", name: "Kling v3.0 Pro", provider: "Kuaishou", tier: "pro", priceNote: "$0.168/sec", supportsImageInput: true, supportsFirstLastFrame: true, supportsAudio: true, maxDuration: 15, promptTarget: "kling" },
+  { id: "google/veo-3.1-fast", name: "Veo 3.1", provider: "Google", tier: "pro", priceNote: "$0.40/sec", supportsImageInput: true, supportsFirstLastFrame: true, supportsAudio: true, maxDuration: 8, promptTarget: "veo" },
+  { id: "kwaivgi/kling-video-o1", name: "Kling Video O1", provider: "Kuaishou", tier: "pro", priceNote: "$0.112/sec", supportsImageInput: true, supportsFirstLastFrame: false, supportsAudio: false, maxDuration: 10, promptTarget: "kling" },
+  { id: "bytedance/seedance-2.0", name: "Seedance 2.0", provider: "ByteDance", tier: "pro", priceNote: "$7/M tokens", supportsImageInput: true, supportsFirstLastFrame: true, supportsAudio: false, maxDuration: 15, promptTarget: "seedance" },
+  { id: "minimax/hailuo-2.3", name: "Hailuo 2.3", provider: "MiniMax", tier: "pro", priceNote: "mid-tier", supportsImageInput: true, supportsFirstLastFrame: false, supportsAudio: false, maxDuration: 10, promptTarget: "veo" },
+  { id: "x-ai/grok-imagine-video", name: "Grok Imagine", provider: "xAI", tier: "budget", priceNote: "$0.05/sec", supportsImageInput: true, supportsFirstLastFrame: false, supportsAudio: false, maxDuration: 10, promptTarget: "veo" },
+  { id: "kwaivgi/kling-v3.0-std", name: "Kling v3.0 Std", provider: "Kuaishou", tier: "budget", priceNote: "$0.126/sec", supportsImageInput: true, supportsFirstLastFrame: true, supportsAudio: true, maxDuration: 15, promptTarget: "kling" },
+  { id: "google/veo-3.1-lite", name: "Veo 3.1 Lite", provider: "Google", tier: "budget", priceNote: "< $0.40/sec", supportsImageInput: true, supportsFirstLastFrame: false, supportsAudio: false, maxDuration: 8, promptTarget: "veo" },
+  { id: "bytedance/seedance-2.0-fast", name: "Seedance 2.0 Fast", provider: "ByteDance", tier: "budget", priceNote: "budget", supportsImageInput: true, supportsFirstLastFrame: true, supportsAudio: false, maxDuration: 10, promptTarget: "seedance" },
+  { id: "alibaba/wan-2.7", name: "Wan 2.7", provider: "Alibaba", tier: "budget", priceNote: "budget", supportsImageInput: true, supportsFirstLastFrame: false, supportsAudio: false, maxDuration: 10, promptTarget: "veo" },
+];
+
 function generateId() {
   return Math.random().toString(36).slice(2, 10);
+}
+
+function normalizeProductSearch(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function getProductCategories(products: ProductAsset[]) {
+  const seen = new Map<string, string>();
+  for (const product of products) {
+    for (const category of product.categories ?? []) {
+      const trimmed = category.trim();
+      if (!trimmed) continue;
+      const key = trimmed.toLowerCase();
+      if (!seen.has(key)) seen.set(key, trimmed);
+    }
+  }
+  return Array.from(seen.values()).sort((a, b) =>
+    a.localeCompare(b, undefined, { sensitivity: "base" })
+  );
+}
+
+function productMatchesFilters(product: ProductAsset, search: string, category: string) {
+  const normalizedSearch = normalizeProductSearch(search);
+  const categories = product.categories ?? [];
+  const matchesSearch =
+    !normalizedSearch ||
+    product.name.toLowerCase().includes(normalizedSearch) ||
+    categories.some((c) => c.toLowerCase().includes(normalizedSearch));
+  const matchesCategory =
+    !category || categories.some((c) => c.toLowerCase() === category.toLowerCase());
+  return matchesSearch && matchesCategory;
 }
 
 function fileToUploadedFile(file: File): Promise<UploadedFile> {
@@ -2988,6 +3058,539 @@ function RuleEditor({ onClose }: { onClose: () => void }) {
   );
 }
 
+// ─── Product Image Manager (per-product, inside ProductManagerModal) ──
+
+function ProductImageManager({
+  product,
+  onAdd,
+  onRemove,
+  onUpdate,
+}: {
+  product: ProductAsset;
+  onAdd: (file: File, label: string, description: string) => Promise<void>;
+  onRemove: (filename: string) => void;
+  onUpdate: (filename: string, patch: { label?: string; description?: string }) => void;
+}) {
+  const [addFile, setAddFile] = useState<File | null>(null);
+  const [addLabel, setAddLabel] = useState("");
+  const [addDescription, setAddDescription] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [drafts, setDrafts] = useState<Record<string, { label: string; description: string }>>({});
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const handleAdd = async () => {
+    if (!addFile || !addLabel.trim()) return;
+    setAdding(true);
+    setError(null);
+    try {
+      await onAdd(addFile, addLabel, addDescription);
+      setAddFile(null);
+      setAddLabel("");
+      setAddDescription("");
+      if (fileRef.current) fileRef.current.value = "";
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  return (
+    <div className="border-t border-border pt-2 space-y-2">
+      <div className="space-y-2">
+        {product.images.map((img: ProductImage) => {
+          const draft = drafts[img.filename];
+          const label = draft?.label ?? img.label;
+          const description = draft?.description ?? img.description ?? "";
+          const dirty =
+            draft !== undefined &&
+            (draft.label !== img.label || draft.description !== (img.description ?? ""));
+          return (
+            <div
+              key={img.filename}
+              className="flex gap-2 items-start p-2 rounded bg-card-hover/40 border border-border"
+            >
+              <div className="w-12 h-12 shrink-0 bg-card rounded overflow-hidden flex items-center justify-center">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={img.url}
+                  alt={img.label}
+                  className="max-w-full max-h-full object-contain"
+                />
+              </div>
+              <div className="flex-1 min-w-0 space-y-1">
+                <input
+                  type="text"
+                  value={label}
+                  onChange={(e) =>
+                    setDrafts((prev) => ({
+                      ...prev,
+                      [img.filename]: { label: e.target.value, description },
+                    }))
+                  }
+                  placeholder="Label (required)"
+                  className="w-full bg-card border border-border rounded px-2 py-1 text-[11px] focus:outline-none focus:border-accent"
+                />
+                <textarea
+                  value={description}
+                  onChange={(e) =>
+                    setDrafts((prev) => ({
+                      ...prev,
+                      [img.filename]: { label, description: e.target.value },
+                    }))
+                  }
+                  placeholder="Description (optional)"
+                  rows={2}
+                  className="w-full bg-card border border-border rounded px-2 py-1 text-[11px] focus:outline-none focus:border-accent"
+                />
+                <div className="flex gap-2 text-[11px]">
+                  {dirty && (
+                    <button
+                      onClick={() => {
+                        const patch: { label?: string; description?: string } = {};
+                        if (draft.label !== img.label) patch.label = draft.label;
+                        if (draft.description !== (img.description ?? "")) patch.description = draft.description;
+                        onUpdate(img.filename, patch);
+                        setDrafts((prev) => {
+                          const next = { ...prev };
+                          delete next[img.filename];
+                          return next;
+                        });
+                      }}
+                      className="text-accent hover:underline"
+                    >
+                      Save
+                    </button>
+                  )}
+                  <button
+                    onClick={() => onRemove(img.filename)}
+                    disabled={product.images.length === 1}
+                    title={product.images.length === 1 ? "A product must have at least one image" : "Remove this image"}
+                    className="text-danger hover:underline disabled:opacity-30 disabled:no-underline"
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="border border-dashed border-border rounded p-2 space-y-1.5">
+        <p className="text-[11px] text-muted">Add another reference image</p>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/png,image/webp,image/jpeg"
+          onChange={(e) => setAddFile(e.target.files?.[0] ?? null)}
+          className="w-full text-[11px] file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:bg-card-hover file:text-foreground file:text-[10px]"
+        />
+        <input
+          type="text"
+          value={addLabel}
+          onChange={(e) => setAddLabel(e.target.value)}
+          placeholder="Label (required, e.g. Interior cross-section)"
+          className="w-full bg-card border border-border rounded px-2 py-1 text-[11px] focus:outline-none focus:border-accent"
+        />
+        <input
+          type="text"
+          value={addDescription}
+          onChange={(e) => setAddDescription(e.target.value)}
+          placeholder="Description (optional, helps AI pick)"
+          className="w-full bg-card border border-border rounded px-2 py-1 text-[11px] focus:outline-none focus:border-accent"
+        />
+        <button
+          onClick={handleAdd}
+          disabled={!addFile || !addLabel.trim() || adding}
+          className="w-full px-2 py-1 text-[11px] bg-accent text-white rounded hover:bg-accent-hover disabled:opacity-50"
+        >
+          {adding ? "Adding…" : "Add image"}
+        </button>
+        {error && <p className="text-[11px] text-danger">{error}</p>}
+      </div>
+    </div>
+  );
+}
+
+// ─── Product Manager Modal ─────────────────────────────────────
+
+function ProductManagerModal({
+  products,
+  brandSlug,
+  onClose,
+  onChange,
+}: {
+  products: ProductAsset[];
+  brandSlug: string;
+  onClose: () => void;
+  onChange: (products: ProductAsset[]) => void;
+}) {
+  const [file, setFile] = useState<File | null>(null);
+  const [name, setName] = useState("");
+  const [imageLabel, setImageLabel] = useState("Hero shot");
+  const [imageDescription, setImageDescription] = useState("");
+  const [categoriesInput, setCategoriesInput] = useState("");
+  const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [categoryDrafts, setCategoryDrafts] = useState<Record<string, string>>({});
+  const [savingProductId, setSavingProductId] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [expandedProductIds, setExpandedProductIds] = useState<Set<string>>(new Set());
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const allCategories = getProductCategories(products);
+  const filteredProducts = products.filter((p) =>
+    productMatchesFilters(p, search, categoryFilter)
+  );
+
+  const refresh = async () => {
+    try {
+      const r = await fetch(`/api/products?brand=${encodeURIComponent(brandSlug)}`);
+      const data = (await r.json()) as ProductAsset[];
+      if (Array.isArray(data)) onChange(data);
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0] ?? null;
+    setFile(f);
+    if (f && !name.trim()) {
+      const base = f.name.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ");
+      setName(base);
+    }
+  };
+
+  const handleUpload = async () => {
+    if (!file || !name.trim() || !imageLabel.trim()) return;
+    setUploading(true);
+    setError(null);
+    try {
+      const fd = new FormData();
+      fd.append("brand", brandSlug);
+      fd.append("file", file);
+      fd.append("name", name.trim());
+      fd.append("categories", categoriesInput);
+      fd.append("label", imageLabel.trim());
+      if (imageDescription.trim()) fd.append("description", imageDescription.trim());
+      const res = await fetch("/api/products", { method: "POST", body: fd });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(data.error || `HTTP ${res.status}`);
+      }
+      await refresh();
+      setFile(null);
+      setName("");
+      setImageLabel("Hero shot");
+      setImageDescription("");
+      setCategoriesInput("");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const toggleExpand = (id: string) => {
+    setExpandedProductIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleAddImage = async (
+    productId: string,
+    addFile: File,
+    label: string,
+    description: string
+  ) => {
+    setError(null);
+    const fd = new FormData();
+    fd.append("brand", brandSlug);
+    fd.append("productId", productId);
+    fd.append("file", addFile);
+    fd.append("label", label.trim());
+    if (description.trim()) fd.append("description", description.trim());
+    const res = await fetch("/api/products/images", { method: "POST", body: fd });
+    if (!res.ok) {
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      throw new Error(data.error || `HTTP ${res.status}`);
+    }
+    await refresh();
+  };
+
+  const handleRemoveImage = async (productId: string, filename: string) => {
+    if (!confirm("Remove this reference image?")) return;
+    setError(null);
+    try {
+      const res = await fetch(
+        `/api/products/images?brand=${encodeURIComponent(brandSlug)}&productId=${encodeURIComponent(productId)}&filename=${encodeURIComponent(filename)}`,
+        { method: "DELETE" }
+      );
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(data.error || `HTTP ${res.status}`);
+      }
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const handleUpdateImage = async (
+    productId: string,
+    filename: string,
+    patch: { label?: string; description?: string }
+  ) => {
+    setError(null);
+    try {
+      const res = await fetch("/api/products/images", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ brand: brandSlug, productId, filename, ...patch }),
+      });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(data.error || `HTTP ${res.status}`);
+      }
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Delete this product?")) return;
+    try {
+      const res = await fetch(
+        `/api/products?brand=${encodeURIComponent(brandSlug)}&id=${encodeURIComponent(id)}`,
+        { method: "DELETE" }
+      );
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(data.error || `HTTP ${res.status}`);
+      }
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const handleSaveCategories = async (product: ProductAsset) => {
+    setSavingProductId(product.id);
+    setError(null);
+    try {
+      const res = await fetch("/api/products", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          brand: brandSlug,
+          id: product.id,
+          categories: categoryDrafts[product.id] ?? product.categories.join(", "),
+        }),
+      });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(data.error || `HTTP ${res.status}`);
+      }
+      await refresh();
+      setCategoryDrafts((prev) => {
+        const next = { ...prev };
+        delete next[product.id];
+        return next;
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSavingProductId(null);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+      <div className="bg-card border border-border rounded-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+        <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+          <h2 className="font-semibold">Manage products</h2>
+          <button
+            onClick={onClose}
+            className="text-muted hover:text-foreground text-sm"
+          >
+            Close
+          </button>
+        </div>
+
+        <div className="px-5 py-4 border-b border-border space-y-3">
+          <p className="text-xs text-muted">
+            Upload a PNG (or JPEG/WebP) of a product. Each product can have multiple reference images (different angles, interiors, environments) — the AI picks the best one based on the user&apos;s instruction. Max 25MB.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/png,image/webp,image/jpeg"
+              onChange={handleFileChange}
+              className="text-sm flex-1 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:bg-card-hover file:text-foreground file:text-xs"
+            />
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Display name"
+              className="flex-1 bg-background border border-border rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-accent"
+            />
+            <input
+              type="text"
+              value={categoriesInput}
+              onChange={(e) => setCategoriesInput(e.target.value)}
+              placeholder="Categories, comma-separated"
+              className="flex-1 bg-background border border-border rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-accent"
+            />
+            <button
+              onClick={handleUpload}
+              disabled={!file || !name.trim() || !imageLabel.trim() || uploading}
+              className="px-3 py-1.5 text-sm bg-accent text-white rounded-md hover:bg-accent-hover disabled:opacity-50 shrink-0"
+            >
+              {uploading ? "Uploading…" : "Upload"}
+            </button>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <input
+              type="text"
+              value={imageLabel}
+              onChange={(e) => setImageLabel(e.target.value)}
+              placeholder="Image label (required, e.g. Hero shot)"
+              className="flex-1 bg-background border border-border rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-accent"
+            />
+            <input
+              type="text"
+              value={imageDescription}
+              onChange={(e) => setImageDescription(e.target.value)}
+              placeholder="Description (optional, helps AI pick)"
+              className="flex-1 bg-background border border-border rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-accent"
+            />
+          </div>
+          {error && <p className="text-xs text-danger">{error}</p>}
+        </div>
+
+        <div className="px-5 py-4 overflow-auto space-y-4">
+          <div className="flex flex-col sm:flex-row gap-2">
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search products or categories…"
+              className="flex-1 bg-background border border-border rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-accent"
+            />
+            <select
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              className="bg-background border border-border rounded-md px-3 py-1.5 text-sm focus:outline-none focus:border-accent"
+            >
+              <option value="">All categories</option>
+              {allCategories.map((category) => (
+                <option key={category} value={category}>
+                  {category}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {products.length === 0 ? (
+            <p className="text-sm text-muted text-center py-6">
+              No products yet. Upload one above.
+            </p>
+          ) : filteredProducts.length === 0 ? (
+            <p className="text-sm text-muted text-center py-6">
+              No products match these filters.
+            </p>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {filteredProducts.map((p) => (
+                <div
+                  key={p.id}
+                  className="border border-border rounded-lg p-2 flex flex-col gap-2 bg-background"
+                >
+                  <div className="aspect-square w-full bg-card-hover rounded overflow-hidden flex items-center justify-center">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={p.url}
+                      alt={p.name}
+                      className="max-w-full max-h-full object-contain"
+                    />
+                  </div>
+                  <div className="text-xs truncate" title={p.name}>
+                    {p.name}
+                  </div>
+                  <div className="flex flex-wrap gap-1 min-h-5">
+                    {(p.categories ?? []).length > 0 ? (
+                      p.categories.map((category) => (
+                        <span
+                          key={category}
+                          className="text-[10px] px-1.5 py-0.5 rounded bg-card-hover text-muted"
+                        >
+                          {category}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-[10px] text-muted">No categories</span>
+                    )}
+                  </div>
+                  <input
+                    type="text"
+                    value={categoryDrafts[p.id] ?? (p.categories ?? []).join(", ")}
+                    onChange={(e) =>
+                      setCategoryDrafts((prev) => ({ ...prev, [p.id]: e.target.value }))
+                    }
+                    placeholder="Categories"
+                    className="bg-card border border-border rounded px-2 py-1 text-xs focus:outline-none focus:border-accent"
+                  />
+                  <button
+                    onClick={() => toggleExpand(p.id)}
+                    className="text-[11px] text-left text-muted hover:text-foreground"
+                  >
+                    {expandedProductIds.has(p.id) ? "▼" : "▶"} {p.images.length} reference image{p.images.length === 1 ? "" : "s"}
+                  </button>
+                  {expandedProductIds.has(p.id) && (
+                    <ProductImageManager
+                      product={p}
+                      onAdd={(addFile, label, description) =>
+                        handleAddImage(p.id, addFile, label, description)
+                      }
+                      onRemove={(filename) => handleRemoveImage(p.id, filename)}
+                      onUpdate={(filename, patch) => handleUpdateImage(p.id, filename, patch)}
+                    />
+                  )}
+                  <div className="flex items-center justify-between gap-2">
+                    <button
+                      onClick={() => handleSaveCategories(p)}
+                      disabled={savingProductId === p.id}
+                      className="text-xs text-accent hover:underline disabled:opacity-50"
+                    >
+                      {savingProductId === p.id ? "Saving…" : "Save categories"}
+                    </button>
+                    <button
+                      onClick={() => handleDelete(p.id)}
+                      className="text-xs text-danger hover:underline"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Page ───────────────────────────────────────────────────
 
 export interface CurrentUser {
@@ -3014,13 +3617,19 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
     },
     [currentUser.isAdmin, lockedSlugSet]
   );
-  const [software, setSoftware] = useState<Software>("other");
+  const [promptCharBudget, setPromptCharBudget] = useState<number>(800);
   const [mode, setMode] = useState<Mode>("place_product");
-  const [outputTarget, setOutputTarget] = useState<OutputTarget>("nano_banana");
+  const [mediaModel, setMediaModel] = useState<string>("google/gemini-3.1-flash-image-preview");
   const [selectedModel, setSelectedModel] = useState<string>("google/gemini-2.5-flash");
   const [selectorModels, setSelectorModels] = useState<{ id: string; name: string; provider: string }[]>([]);
   const [brandSlug, setBrandSlug] = useState<string | null>(null);
   const [brands, setBrands] = useState<BrandProfile[]>([]);
+  const [products, setProducts] = useState<ProductAsset[]>([]);
+  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
+  const [productPicks, setProductPicks] = useState<ClientProductPick[]>([]);
+  const [productSearch, setProductSearch] = useState("");
+  const [productCategoryFilter, setProductCategoryFilter] = useState("");
+  const [showProductModal, setShowProductModal] = useState(false);
   const [instruction, setInstruction] = useState("");
   const [primaryImages, setPrimaryImages] = useState<UploadedFile[]>([]);
   const [referenceImages, setReferenceImages] = useState<UploadedFile[]>([]);
@@ -3081,6 +3690,19 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
   const [showRefineInput, setShowRefineInput] = useState(false);
   const [refineInstruction, setRefineInstruction] = useState("");
 
+  // Feature: Direct media generation
+  const [mediaAspectRatio, setMediaAspectRatio] = useState("1:1");
+  const [videoDuration, setVideoDuration] = useState(8);
+  const [generatingMedia, setGeneratingMedia] = useState(false);
+  const [mediaResult, setMediaResult] = useState<{ type: "image" | "video"; url: string } | null>(null);
+  const [videoJobId, setVideoJobId] = useState<string | null>(null);
+  const [videoJobStatus, setVideoJobStatus] = useState<"pending" | "in_progress" | "completed" | "failed" | null>(null);
+  const [mediaError, setMediaError] = useState<string | null>(null);
+
+  // Per-brand media-generation spend (current month, requesting user only).
+  const [brandSpendMonthUsd, setBrandSpendMonthUsd] = useState<number | null>(null);
+  const [brandSpendSource, setBrandSpendSource] = useState<"provider" | "computed" | "mixed" | null>(null);
+
   const outputRef = useRef<HTMLDivElement>(null);
   const errorRef = useRef<HTMLDivElement>(null);
   const generateRef = useRef<() => void>(() => {});
@@ -3122,6 +3744,49 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
       });
   }, []);
 
+  // Reload products whenever the selected brand changes
+  useEffect(() => {
+    if (!brandSlug) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setProducts([]);
+      setSelectedProductIds([]);
+      return;
+    }
+    fetch(`/api/products?brand=${encodeURIComponent(brandSlug)}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data)) setProducts(data);
+      })
+      .catch(() => {});
+  }, [brandSlug]);
+
+  // Refresh per-brand spend whenever the brand changes (and after media gens settle).
+  useEffect(() => {
+    if (!brandSlug) {
+      setBrandSpendMonthUsd(null);
+      setBrandSpendSource(null);
+      return;
+    }
+    const monthStart = new Date();
+    monthStart.setUTCDate(1);
+    monthStart.setUTCHours(0, 0, 0, 0);
+    const since = monthStart.toISOString().slice(0, 19).replace("T", " ");
+    fetch(`/api/usage?brand=${encodeURIComponent(brandSlug)}&since=${encodeURIComponent(since)}`)
+      .then((r) => r.json())
+      .then((data: { byBrand: { brand_slug: string; month_usd: number }[]; estimatedUsd: number; providerUsd: number }) => {
+        const row = data.byBrand?.find((b) => b.brand_slug === brandSlug);
+        setBrandSpendMonthUsd(row?.month_usd ?? 0);
+        if (data.providerUsd > 0 && data.estimatedUsd > 0) setBrandSpendSource("mixed");
+        else if (data.providerUsd > 0) setBrandSpendSource("provider");
+        else if (data.estimatedUsd > 0) setBrandSpendSource("computed");
+        else setBrandSpendSource(null);
+      })
+      .catch(() => {
+        setBrandSpendMonthUsd(null);
+        setBrandSpendSource(null);
+      });
+  }, [brandSlug, mediaResult, videoJobStatus]);
+
   // Load templates on mount
   useEffect(() => {
     fetch("/api/templates")
@@ -3159,6 +3824,8 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
           setShowRuleEditor(false);
         } else if (showBrandModal) {
           setShowBrandModal(false);
+        } else if (showProductModal) {
+          setShowProductModal(false);
         } else if (insightsOpen) {
           setInsightsOpen(false);
         } else if (historyOpen) {
@@ -3176,7 +3843,7 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [cropTarget, paintTarget, showBrandModal, historyOpen, insightsOpen, showTemplates, showSaveTemplate, showRuleEditor, showRefineInput]);
+  }, [cropTarget, paintTarget, showBrandModal, showProductModal, historyOpen, insightsOpen, showTemplates, showSaveTemplate, showRuleEditor, showRefineInput]);
 
   // Close template dropdown on outside click
   useEffect(() => {
@@ -3193,29 +3860,40 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
     return () => document.removeEventListener("mousedown", handler);
   }, [showTemplates]);
 
-  // Model is the primary selector — Software and Mode dropdowns are derived from
-  // the chosen Model. Software is filtered to those that support the model;
-  // Mode is filtered to match the model's image/video type AND respect software
-  // constraints (Photoshop is single-image-edit only; video_backdrop is
-  // Runway-only).
-  const availableTargets = OUTPUT_TARGETS;
-  const availableSoftwares = SOFTWARES.filter((s) =>
-    s.availableTargets.includes(outputTarget)
+  // Poll video generation job until completed or failed
+  useEffect(() => {
+    if (!videoJobId || !videoJobStatus || videoJobStatus === "completed" || videoJobStatus === "failed") return;
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/poll-video/${videoJobId}`);
+        const data = await res.json();
+        setVideoJobStatus(data.status);
+        if (data.status === "completed" && data.videoUrl) {
+          setMediaResult({ type: "video", url: data.videoUrl });
+          setGeneratingMedia(false);
+        } else if (data.status === "failed") {
+          setMediaError(data.error || "Video generation failed");
+          setGeneratingMedia(false);
+        }
+      } catch (err) {
+        setMediaError(err instanceof Error ? err.message : String(err));
+        setGeneratingMedia(false);
+      }
+    };
+    const interval = setInterval(poll, 8000);
+    return () => clearInterval(interval);
+  }, [videoJobId, videoJobStatus]);
+
+  // Derive outputTarget and isVideoTarget from the selected media model.
+  const ALL_MEDIA_MODELS = [...IMAGE_MODELS, ...VIDEO_MODELS];
+  const selectedMediaModelDef = ALL_MEDIA_MODELS.find((m) => m.id === mediaModel);
+  const outputTarget: OutputTarget = selectedMediaModelDef?.promptTarget ?? "nano_banana";
+  const isVideoMediaModel = VIDEO_MODELS.some((m) => m.id === mediaModel);
+
+  // Available modes depend on whether the selected model is image or video.
+  const availableModes = MODES.filter((m) =>
+    isVideoMediaModel ? m.videoOnly : !m.videoOnly
   );
-  const targetDef = OUTPUT_TARGETS.find((t) => t.value === outputTarget)!;
-  const targetTypes = targetDef.type;
-
-  const filterModesFor = (sw: Software, types: ("image" | "video")[]) =>
-    MODES.filter((m) => {
-      const modeType: "image" | "video" = m.videoOnly ? "video" : "image";
-      if (!types.includes(modeType)) return false;
-      if (sw === "photoshop" && m.value !== "edit_single") return false;
-      if (m.value === "video_backdrop" && sw !== "runway") return false;
-      return true;
-    });
-
-  const availableModes = filterModesFor(software, targetTypes);
-  const softwareDef = SOFTWARES.find((s) => s.value === software)!;
 
   const pickMode = (modes: typeof MODES, current: Mode): Mode => {
     if (modes.some((m) => m.value === current)) return current;
@@ -3223,33 +3901,20 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
     return preferred?.value ?? modes[0]?.value ?? current;
   };
 
-  const handleTargetChange = (next: OutputTarget) => {
-    setOutputTarget(next);
-    const nextTargetDef = OUTPUT_TARGETS.find((t) => t.value === next)!;
-    const nextTypes = nextTargetDef.type;
-
-    const nextSoftwares = SOFTWARES.filter((s) =>
-      s.availableTargets.includes(next)
-    );
-    const fallbackSoftware =
-      nextSoftwares.find((s) => s.value === "other")?.value ??
-      nextSoftwares[0]?.value ??
-      software;
-    const nextSoftware = nextSoftwares.some((s) => s.value === software)
-      ? software
-      : fallbackSoftware;
-    if (nextSoftware !== software) setSoftware(nextSoftware);
-
-    const nextModes = filterModesFor(nextSoftware, nextTypes);
+  const handleMediaModelChange = (nextId: string) => {
+    setMediaModel(nextId);
+    const nextIsVideo = VIDEO_MODELS.some((m) => m.id === nextId);
+    const nextModes = MODES.filter((m) => nextIsVideo ? m.videoOnly : !m.videoOnly);
     const nextMode = pickMode(nextModes, mode);
     if (nextMode !== mode) setMode(nextMode);
   };
 
-  const handleSoftwareChange = (next: Software) => {
-    setSoftware(next);
-    const nextModes = filterModesFor(next, targetTypes);
-    const nextMode = pickMode(nextModes, mode);
-    if (nextMode !== mode) setMode(nextMode);
+  const handleProductToggle = (id: string) => {
+    setSelectedProductIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+    // Clear any previous pick for this product so stale info isn't shown.
+    setProductPicks((prev) => prev.filter((p) => p.productId !== id));
   };
 
   const handleModeChange = (next: Mode) => {
@@ -3267,9 +3932,10 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
     setMode(next);
   };
 
-  const charLimit = getCharLimit(software, outputTarget);
+  const charLimit = getCharLimit(outputTarget);
   const promptLength = generatedPrompt.length;
   const overLimit = promptLength > charLimit.hard;
+  const isVideoTarget = isVideoMediaModel;
 
   // Parse multi-clip prompts for video_backdrop mode
   const clipPrompts = (() => {
@@ -3356,11 +4022,12 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
       return;
     }
     const isTextToMode = mode === "text_to_image" || mode === "text_to_video";
-    if (!isTextToMode && effectivePrimaryImages.length === 0) {
+    const hasProducts = selectedProductIds.length > 0;
+    if (!isTextToMode && effectivePrimaryImages.length === 0 && (mode === "animate_keyframes" || !hasProducts)) {
       setError(
         mode === "animate_keyframes"
           ? "Please upload at least a first-frame image."
-          : "Please upload at least one primary image."
+          : "Please upload at least one primary image, or select a product."
       );
       return;
     }
@@ -3376,6 +4043,7 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
     setCurrentHistoryId(null);
     resetCurrentFeedback();
     setShowRefineInput(false);
+    setProductPicks([]);
 
     try {
       const [compPrimary, compReference] = await Promise.all([
@@ -3389,7 +4057,6 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           mode,
-          software,
           outputTarget,
           brandSlug,
           instruction,
@@ -3398,6 +4065,8 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
           primaryImages: compPrimary,
           referenceImages: compReference,
           selectedModel,
+          charBudget: promptCharBudget,
+          selectedProductIds,
         }),
       });
 
@@ -3442,6 +4111,8 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
                 setGenerating(false);
               } else if (data.status === "connected") {
                 setUsedModel(data.model);
+              } else if (Array.isArray(data.productPicks)) {
+                setProductPicks(data.productPicks as ClientProductPick[]);
               } else if (data.text) {
                 prompt += data.text;
                 setGeneratedPrompt(prompt);
@@ -3534,11 +4205,12 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
       return;
     }
     const isTextToMode = mode === "text_to_image" || mode === "text_to_video";
-    if (!isTextToMode && effectivePrimaryImages.length === 0) {
+    const hasProducts = selectedProductIds.length > 0;
+    if (!isTextToMode && effectivePrimaryImages.length === 0 && (mode === "animate_keyframes" || !hasProducts)) {
       setError(
         mode === "animate_keyframes"
           ? "Please upload at least a first-frame image."
-          : "Please upload at least one primary image."
+          : "Please upload at least one primary image, or select a product."
       );
       return;
     }
@@ -3565,7 +4237,6 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
     ]);
     const body = {
       mode,
-      software,
       outputTarget,
       brandSlug,
       instruction,
@@ -3574,7 +4245,10 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
       primaryImages: compPrimary,
       referenceImages: compReference,
       selectedModel,
+      charBudget: promptCharBudget,
+      selectedProductIds,
     };
+    setProductPicks([]);
 
     const promises = [0, 1, 2].map(async (idx) => {
       try {
@@ -3733,8 +4407,8 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
         body: JSON.stringify({
           currentPrompt: generatedPrompt,
           refinement,
-          software,
           outputTarget,
+          charBudget: promptCharBudget,
         }),
       });
 
@@ -3780,6 +4454,82 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
     }
   };
 
+  const handleGenerateMedia = async () => {
+    if (!generatedPrompt.trim()) return;
+    setGeneratingMedia(true);
+    setMediaResult(null);
+    setMediaError(null);
+    setVideoJobId(null);
+    setVideoJobStatus(null);
+
+    try {
+      if (isVideoTarget) {
+        const frameImages: { type: "image_url"; image_url: { url: string }; frame_type: "first_frame" | "last_frame" }[] = [];
+        const toDataUrl = (f: { type: string; base64: string }) =>
+          `data:${f.type || "image/jpeg"};base64,${f.base64}`;
+
+        if (mode === "animate_keyframes") {
+          if (firstFrameImage[0]) frameImages.push({ type: "image_url", image_url: { url: toDataUrl(firstFrameImage[0]) }, frame_type: "first_frame" });
+          if (lastFrameImage[0]) frameImages.push({ type: "image_url", image_url: { url: toDataUrl(lastFrameImage[0]) }, frame_type: "last_frame" });
+        } else if (mode === "animate_single" && primaryImages[0]) {
+          frameImages.push({ type: "image_url", image_url: { url: toDataUrl(primaryImages[0]) }, frame_type: "first_frame" });
+        }
+
+        const selectedVideoModel = VIDEO_MODELS.find((m) => m.id === mediaModel);
+        const res = await fetch("/api/generate-video", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: mediaModel,
+            prompt: generatedPrompt,
+            aspectRatio: mediaAspectRatio,
+            resolution: "1080p",
+            duration: Math.min(videoDuration, selectedVideoModel?.maxDuration ?? 10),
+            generateAudio: includeAudio && (selectedVideoModel?.supportsAudio ?? false),
+            frameImages,
+            brandSlug,
+            historyId: currentHistoryId,
+          }),
+        });
+        const data = await res.json();
+        if (data.error) { setMediaError(data.error); setGeneratingMedia(false); return; }
+        setVideoJobId(data.jobId);
+        setVideoJobStatus(data.status || "pending");
+      } else {
+        const selectedImageModel = IMAGE_MODELS.find((m) => m.id === mediaModel);
+        const imgs = primaryImages.slice(0, 3).map((img) => ({
+          base64: img.base64,
+          mimeType: img.type || "image/jpeg",
+        }));
+        const picksForRequest = productPicks
+          .filter((p) => selectedProductIds.includes(p.productId))
+          .map((p) => ({ productId: p.productId, filename: p.filename }));
+        const res = await fetch("/api/generate-image", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: mediaModel,
+            prompt: generatedPrompt,
+            aspectRatio: mediaAspectRatio,
+            imageSize: "2K",
+            imageOnly: selectedImageModel?.textOutput === false,
+            primaryImages: imgs,
+            productPicks: picksForRequest,
+            brandSlug,
+            historyId: currentHistoryId,
+          }),
+        });
+        const data = await res.json();
+        if (data.error) { setMediaError(data.error); setGeneratingMedia(false); return; }
+        setMediaResult({ type: "image", url: data.url });
+        setGeneratingMedia(false);
+      }
+    } catch (err) {
+      setMediaError(err instanceof Error ? err.message : String(err));
+      setGeneratingMedia(false);
+    }
+  };
+
   const handleHistorySelect = (entry: HistoryEntry) => {
     // Migrate legacy GPT model rows that predate the GPT Image consolidation.
     const rawTarget = entry.output_target as string;
@@ -3794,36 +4544,24 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
       ? normalizedTarget
       : "nano_banana";
     const finalTargetDef = OUTPUT_TARGETS.find((t) => t.value === finalTarget)!;
-    const finalTypes = finalTargetDef.type;
+    const isVideoHistoryEntry = finalTargetDef.type.includes("video");
 
-    // Pick a software that hosts this model.
-    const validSoftwares = SOFTWARES.filter((s) =>
-      s.availableTargets.includes(finalTarget)
-    );
-    let inferredSoftware: Software;
-    if (finalTarget === "gpt_image") inferredSoftware = "other";
-    else if (finalTarget === "veo" || finalTarget === "nano_banana")
-      inferredSoftware = "runway";
-    else inferredSoftware = "firefly";
-    if (!validSoftwares.some((s) => s.value === inferredSoftware)) {
-      inferredSoftware =
-        validSoftwares.find((s) => s.value === "other")?.value ??
-        validSoftwares[0]?.value ??
-        "other";
-    }
+    // Pick a model whose promptTarget matches the restored entry's outputTarget.
+    const candidateModels = isVideoHistoryEntry ? VIDEO_MODELS : IMAGE_MODELS;
+    const matchingModel =
+      candidateModels.find((m) => m.promptTarget === finalTarget) ??
+      candidateModels[0];
+    const nextModelId = matchingModel?.id ?? (isVideoHistoryEntry ? VIDEO_MODELS[0]?.id : IMAGE_MODELS[0]?.id) ?? mediaModel;
 
-    // Pick a mode valid for the model+software combination, preferring the
-    // entry's stored mode.
-    const validModes = filterModesFor(inferredSoftware, finalTypes);
+    const validModes = MODES.filter((m) => isVideoHistoryEntry ? m.videoOnly : !m.videoOnly);
     const nextMode: Mode =
       validModes.find((m) => m.value === entry.mode)?.value ??
       validModes.find((m) => m.value === "place_product")?.value ??
       validModes[0]?.value ??
       (entry.mode as Mode);
 
-    setSoftware(inferredSoftware);
+    setMediaModel(nextModelId);
     setMode(nextMode);
-    setOutputTarget(finalTarget);
     setBrandSlug(entry.brand_slug);
     setInstruction(entry.instruction);
     setGeneratedPrompt(entry.generated_prompt);
@@ -3843,14 +4581,24 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
     return <SetupScreen />;
   }
 
+  const productCategories = getProductCategories(products);
+  const visibleProducts = products.filter((p) =>
+    productMatchesFilters(p, productSearch, productCategoryFilter)
+  );
+  // Always show selected products even if they don't match the current filters
+  const selectedNotVisible = products.filter(
+    (p) => selectedProductIds.includes(p.id) && !visibleProducts.some((v) => v.id === p.id)
+  );
+  const productListItems = [...selectedNotVisible, ...visibleProducts];
+
   return (
     <div className="min-h-screen flex flex-col">
       {/* Header */}
       <header className="border-b border-border px-3 sm:px-6 py-3 sm:py-4 flex items-center justify-between shrink-0">
         <div>
-          <h1 className="text-lg font-semibold">AI Prompt Generator</h1>
+          <h1 className="text-xl font-bold text-gradient">Wondr Forge</h1>
           <p className="text-xs text-muted">
-            Generate optimized prompts for Nano Banana, Veo, and Firefly
+            Forge AI images and videos with brand-aware prompts.
           </p>
         </div>
         <div className="flex items-center gap-1.5 sm:gap-3">
@@ -3899,40 +4647,42 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
       </header>
 
       {/* Main content */}
-      <main className="flex-1 max-w-4xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-8 space-y-4 sm:space-y-6">
-        {/* Row 1: Model + Software + Mode + LLM Model */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+      <main className="flex-1 max-w-4xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-8 space-y-6">
+        
+        {/* Advanced Settings Accordion */}
+        <details className="group bg-card border border-border rounded-xl shadow-sm transition-all open:shadow-md">
+          <summary className="text-sm font-semibold cursor-pointer select-none flex items-center justify-between text-foreground p-4">
+            Advanced Settings & Configuration
+            <span className="text-muted group-open:rotate-180 transition-transform">▼</span>
+          </summary>
+          <div className="p-4 pt-0 space-y-5 border-t border-border mt-2">
+            {/* Row 1: Model + Mode + Char Budget */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
           <div>
-            <label className="text-sm font-medium block mb-1.5">Model</label>
+            <label className="text-sm font-medium block mb-1.5">Generation Model</label>
             <select
-              value={outputTarget}
-              onChange={(e) => handleTargetChange(e.target.value as OutputTarget)}
-              disabled={availableTargets.length <= 1}
-              className="w-full bg-card border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent disabled:opacity-60"
-            >
-              {availableTargets.map((t) => (
-                <option key={t.value} value={t.value}>
-                  {t.label}
-                </option>
-              ))}
-            </select>
-            <p className="text-[11px] text-muted mt-1">Limit: {charLimit.soft}</p>
-          </div>
-
-          <div>
-            <label className="text-sm font-medium block mb-1.5">Software</label>
-            <select
-              value={software}
-              onChange={(e) => handleSoftwareChange(e.target.value as Software)}
+              value={mediaModel}
+              onChange={(e) => handleMediaModelChange(e.target.value)}
               className="w-full bg-card border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent"
             >
-              {availableSoftwares.map((s) => (
-                <option key={s.value} value={s.value}>
-                  {s.label}
-                </option>
-              ))}
+              <optgroup label="— Image models —">
+                {IMAGE_MODELS.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name} · {m.provider}
+                  </option>
+                ))}
+              </optgroup>
+              <optgroup label="— Video models —">
+                {VIDEO_MODELS.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name} · {m.provider}
+                  </option>
+                ))}
+              </optgroup>
             </select>
-            <p className="text-[11px] text-muted mt-1">{softwareDef.description}</p>
+            <p className="text-[11px] text-muted mt-1">
+              {selectedMediaModelDef?.priceNote ?? ""} · prompt limit: {charLimit.soft}
+            </p>
           </div>
 
           <div>
@@ -3952,19 +4702,33 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
           </div>
 
           <div>
-            <label className="text-sm font-medium block mb-1.5">LLM Model</label>
-            <select
-              value={selectedModel}
-              onChange={(e) => setSelectedModel(e.target.value)}
-              disabled={generating || selectorModels.length === 0}
-              className="w-full bg-card border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent disabled:opacity-60"
-            >
-              {selectorModels.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.provider} — {m.name}
-                </option>
-              ))}
-            </select>
+            <label className="text-sm font-medium block mb-1.5">Prompt character budget</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="range"
+                min={100}
+                max={charLimit.hard}
+                step={50}
+                value={promptCharBudget}
+                onChange={(e) => setPromptCharBudget(Number(e.target.value))}
+                className="flex-1 accent-accent h-2 bg-card border border-border rounded-lg appearance-none cursor-pointer"
+              />
+              <input
+                type="number"
+                min={100}
+                max={charLimit.hard}
+                step={50}
+                value={promptCharBudget}
+                onChange={(e) => {
+                  const v = Math.min(charLimit.hard, Math.max(100, Number(e.target.value) || 100));
+                  setPromptCharBudget(v);
+                }}
+                className="w-20 bg-background border border-border rounded-lg px-2 py-1.5 text-sm font-mono text-right focus:outline-none focus:border-accent shrink-0"
+              />
+            </div>
+            <p className="text-[11px] text-muted mt-1">
+              Target length for generated prompt. Hard ceiling: {charLimit.hard} chars.
+            </p>
           </div>
 
         </div>
@@ -3993,7 +4757,11 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
           <div className="flex gap-2 max-w-md">
             <select
               value={brandSlug || ""}
-              onChange={(e) => setBrandSlug(e.target.value || null)}
+              onChange={(e) => {
+                setBrandSlug(e.target.value || null);
+                setSelectedProductIds([]);
+                setProductPicks([]);
+              }}
               className="flex-1 bg-card border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent"
             >
               <option value="">None</option>
@@ -4034,9 +4802,140 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
               Admin-only — generate prompts as usual, but the profile can&apos;t be edited.
             </p>
           )}
+          {brandSlug && brandSpendMonthUsd !== null && (
+            <p className="text-[11px] text-muted mt-1">
+              <span
+                className="px-1.5 py-0.5 rounded bg-card-hover mr-1.5"
+                title={
+                  brandSpendSource === "provider"
+                    ? "From provider billing"
+                    : brandSpendSource === "computed"
+                      ? "Estimated from model pricing — provider total not available"
+                      : brandSpendSource === "mixed"
+                        ? "Mix of provider-billed and estimated rows"
+                        : "No spend yet this month"
+                }
+              >
+                ${brandSpendMonthUsd.toFixed(2)} this month
+                {brandSpendSource === "computed" && " (est)"}
+                {brandSpendSource === "mixed" && " (~)"}
+              </span>
+              <a href="/usage" className="underline hover:text-fg">View usage</a>
+            </p>
+          )}
         </div>
 
-        {/* Row 2: Image Upload Zones */}
+        {/* Row 1c: Product */}
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="text-sm font-medium">
+              Product
+              {selectedProductIds.length > 0 && (
+                <span className="ml-2 text-xs font-normal text-muted">
+                  {selectedProductIds.length} selected
+                </span>
+              )}
+            </label>
+            {currentUser.isAdmin && brandSlug && (
+              <button
+                onClick={() => setShowProductModal(true)}
+                className="px-2.5 py-1 text-xs border border-border rounded-lg hover:bg-card-hover transition-colors"
+                title="Manage product library"
+              >
+                Manage
+              </button>
+            )}
+          </div>
+          {!brandSlug ? (
+            <p className="text-[11px] text-muted">Select a brand above to load its products.</p>
+          ) : (
+            <div className="space-y-2 max-w-md">
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  type="text"
+                  value={productSearch}
+                  onChange={(e) => setProductSearch(e.target.value)}
+                  placeholder="Search products…"
+                  className="flex-1 bg-card border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent"
+                />
+                {productCategories.length > 0 && (
+                  <select
+                    value={productCategoryFilter}
+                    onChange={(e) => setProductCategoryFilter(e.target.value)}
+                    className="bg-card border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-accent"
+                  >
+                    <option value="">All categories</option>
+                    {productCategories.map((category) => (
+                      <option key={category} value={category}>
+                        {category}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+              {products.length === 0 ? (
+                <p className="text-[11px] text-muted">No products yet — add some via Manage.</p>
+              ) : productListItems.length === 0 ? (
+                <p className="text-[11px] text-muted">No products match these filters.</p>
+              ) : (
+                <div className="border border-border rounded-lg divide-y divide-border max-h-48 overflow-y-auto">
+                  {productListItems.map((p) => {
+                    const checked = selectedProductIds.includes(p.id);
+                    const pick = productPicks.find((x) => x.productId === p.id);
+                    return (
+                      <label
+                        key={p.id}
+                        className={`flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-card-hover transition-colors text-sm ${checked ? "bg-card-hover" : ""}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => handleProductToggle(p.id)}
+                          className="accent-accent shrink-0"
+                        />
+                        <span className="flex-1 truncate">{p.name}</span>
+                        {p.images.length > 1 && (
+                          <span
+                            className="text-[10px] text-muted shrink-0"
+                            title={`${p.images.length} reference images — AI picks the best one per generation`}
+                          >
+                            {p.images.length} imgs
+                          </span>
+                        )}
+                        {checked && pick && (
+                          <span
+                            className="text-[10px] text-accent shrink-0"
+                            title={pick.reason}
+                          >
+                            {pick.picked ? `→ ${pick.label}` : `default: ${pick.label}`}
+                          </span>
+                        )}
+                        {p.categories.length > 0 && !pick && (
+                          <span className="text-[10px] text-muted shrink-0">
+                            {p.categories.join(", ")}
+                          </span>
+                        )}
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+              {selectedProductIds.length > 0 && (
+                <p className="text-[11px] text-muted">
+                  {selectedProductIds.length === 1
+                    ? "1 product selected. The AI picks the best reference image based on your instruction."
+                    : `${selectedProductIds.length} products selected — all will appear in the final image. The AI picks the best reference per product.`}
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+          </div>
+        </details>
+
+        {/* Media Inputs & Prompt Workspace */}
+        <div className="bg-card border border-border rounded-xl p-4 sm:p-5 shadow-sm space-y-6">
+          {/* Row 2: Image Upload Zones */}
         <div className="flex gap-4 flex-col sm:flex-row">
           {mode === "text_to_image" || mode === "text_to_video" ? (
             <ImageUploadZone
@@ -4337,7 +5236,7 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
                     }`}
                     title={
                       overLimit
-                        ? `Over the ${charLimit.hard}-character limit for ${softwareDef.label}`
+                        ? `Over the ${charLimit.hard}-character limit for ${selectedMediaModelDef?.name ?? outputTarget}`
                         : `Limit: ${charLimit.soft}`
                     }
                   >
@@ -4592,6 +5491,106 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
             )}
           </div>
         )}
+
+        {/* Row 6: Generate Media */}
+        {generatedPrompt && !generating && !generatingVariants && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-medium">
+                {isVideoTarget ? "Generate Video" : "Generate Image"}
+              </h2>
+              <span className="text-[10px] text-muted">
+                {selectedMediaModelDef?.name ?? mediaModel} · {selectedMediaModelDef?.provider ?? ""} · {selectedMediaModelDef?.priceNote ?? ""} · via OpenRouter
+              </span>
+            </div>
+
+            {/* Settings row */}
+            <div className="flex flex-wrap gap-3 items-center">
+              <div className="flex items-center gap-1.5">
+                <label className="text-[11px] text-muted">Aspect:</label>
+                <select
+                  value={mediaAspectRatio}
+                  onChange={(e) => setMediaAspectRatio(e.target.value)}
+                  className="bg-background border border-border rounded px-2 py-1 text-xs focus:outline-none focus:border-accent"
+                >
+                  {["9:16", "4:5", "16:9", "5:4", "1:1"].map((r) => (
+                    <option key={r} value={r}>{r}</option>
+                  ))}
+                </select>
+              </div>
+              {isVideoTarget && (
+                <div className="flex items-center gap-1.5">
+                  <label className="text-[11px] text-muted">Duration:</label>
+                  <select
+                    value={videoDuration}
+                    onChange={(e) => setVideoDuration(Number(e.target.value))}
+                    className="bg-background border border-border rounded px-2 py-1 text-xs focus:outline-none focus:border-accent"
+                  >
+                    {[5, 8, 10, 15].map((d) => (
+                      <option key={d} value={d}>{d}s</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+
+            {/* Generate button */}
+            <button
+              onClick={handleGenerateMedia}
+              disabled={generatingMedia}
+              className="px-4 py-2 text-sm bg-accent text-white rounded-lg hover:bg-accent-hover disabled:opacity-50 transition-colors"
+            >
+              {generatingMedia
+                ? isVideoTarget
+                  ? videoJobStatus === "pending"
+                    ? "Queued..."
+                    : videoJobStatus === "in_progress"
+                    ? "Generating..."
+                    : "Processing..."
+                  : "Generating..."
+                : isVideoTarget
+                ? "Generate Video"
+                : "Generate Image"}
+            </button>
+
+            {/* Error */}
+            {mediaError && (
+              <div className="bg-danger/10 border border-danger/30 rounded-lg px-3 py-2 text-xs text-danger">
+                {mediaError}
+              </div>
+            )}
+
+            {/* Result */}
+            {mediaResult && (
+              <div className="space-y-2">
+                <div className="border border-border rounded-lg overflow-hidden">
+                  {mediaResult.type === "image" ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={mediaResult.url}
+                      alt="Generated image"
+                      className="w-full h-auto block"
+                    />
+                  ) : (
+                    <video
+                      src={mediaResult.url}
+                      controls
+                      className="w-full h-auto block"
+                    />
+                  )}
+                </div>
+                <a
+                  href={mediaResult.url}
+                  download={mediaResult.type === "image" ? "generated-image.png" : "generated-video.mp4"}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs border border-border rounded-md hover:bg-card-hover transition-colors"
+                >
+                  ↓ Download
+                </a>
+              </div>
+            )}
+          </div>
+        )}
+        </div>
       </main>
 
       {/* Modals */}
@@ -4618,6 +5617,15 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
             setEditingBrand(null);
           }}
           existingBrand={editingBrand ?? undefined}
+        />
+      )}
+
+      {showProductModal && currentUser.isAdmin && brandSlug && (
+        <ProductManagerModal
+          products={products}
+          brandSlug={brandSlug}
+          onChange={setProducts}
+          onClose={() => setShowProductModal(false)}
         />
       )}
 

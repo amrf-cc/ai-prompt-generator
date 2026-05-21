@@ -51,6 +51,35 @@ function getDb(): Database.Database {
         db.exec(`ALTER TABLE history ADD COLUMN ${col.ddl}`);
       }
     }
+
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS media_generations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        timestamp TEXT NOT NULL DEFAULT (datetime('now')),
+        kind TEXT NOT NULL,
+        brand_slug TEXT,
+        model_id TEXT NOT NULL,
+        prompt TEXT NOT NULL,
+        history_id INTEGER,
+        duration_sec REAL,
+        aspect_ratio TEXT,
+        image_size TEXT,
+        image_count INTEGER,
+        input_tokens INTEGER,
+        output_tokens INTEGER,
+        cost_usd REAL NOT NULL DEFAULT 0,
+        cost_source TEXT NOT NULL DEFAULT 'unknown',
+        cost_components TEXT,
+        status TEXT NOT NULL DEFAULT 'success',
+        result_url TEXT,
+        job_id TEXT,
+        error TEXT,
+        created_by TEXT
+      );
+      CREATE INDEX IF NOT EXISTS idx_media_brand ON media_generations(brand_slug);
+      CREATE INDEX IF NOT EXISTS idx_media_timestamp ON media_generations(timestamp);
+      CREATE INDEX IF NOT EXISTS idx_media_job ON media_generations(job_id);
+    `);
   }
   return db;
 }
@@ -193,6 +222,247 @@ export function updateFeedback(
 export function deleteHistoryEntry(id: number) {
   const db = getDb();
   return db.prepare("DELETE FROM history WHERE id = ?").run(id);
+}
+
+export type MediaKind = "image" | "video";
+export type MediaStatus = "success" | "failed" | "pending";
+export type CostSource = "provider" | "computed" | "unknown";
+
+export interface MediaGenerationInsert {
+  kind: MediaKind;
+  brand_slug: string | null;
+  model_id: string;
+  prompt: string;
+  history_id?: number | null;
+  duration_sec?: number | null;
+  aspect_ratio?: string | null;
+  image_size?: string | null;
+  image_count?: number | null;
+  input_tokens?: number | null;
+  output_tokens?: number | null;
+  cost_usd: number;
+  cost_source: CostSource;
+  cost_components?: unknown;
+  status: MediaStatus;
+  result_url?: string | null;
+  job_id?: string | null;
+  error?: string | null;
+  created_by?: string | null;
+}
+
+export function insertMediaGeneration(entry: MediaGenerationInsert): number {
+  const db = getDb();
+  const stmt = db.prepare(`
+    INSERT INTO media_generations
+      (kind, brand_slug, model_id, prompt, history_id,
+       duration_sec, aspect_ratio, image_size, image_count,
+       input_tokens, output_tokens,
+       cost_usd, cost_source, cost_components,
+       status, result_url, job_id, error, created_by)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  const info = stmt.run(
+    entry.kind,
+    entry.brand_slug,
+    entry.model_id,
+    entry.prompt,
+    entry.history_id ?? null,
+    entry.duration_sec ?? null,
+    entry.aspect_ratio ?? null,
+    entry.image_size ?? null,
+    entry.image_count ?? null,
+    entry.input_tokens ?? null,
+    entry.output_tokens ?? null,
+    entry.cost_usd,
+    entry.cost_source,
+    entry.cost_components ? JSON.stringify(entry.cost_components) : null,
+    entry.status,
+    entry.result_url ?? null,
+    entry.job_id ?? null,
+    entry.error ?? null,
+    entry.created_by ?? null
+  );
+  return info.lastInsertRowid as number;
+}
+
+export interface MediaGenerationUpdate {
+  duration_sec?: number | null;
+  cost_usd?: number;
+  cost_source?: CostSource;
+  cost_components?: unknown;
+  status?: MediaStatus;
+  result_url?: string | null;
+  error?: string | null;
+}
+
+export function updateMediaGeneration(id: number, patch: MediaGenerationUpdate) {
+  const db = getDb();
+  const sets: string[] = [];
+  const params: unknown[] = [];
+  if ("duration_sec" in patch) {
+    sets.push("duration_sec = ?");
+    params.push(patch.duration_sec);
+  }
+  if ("cost_usd" in patch) {
+    sets.push("cost_usd = ?");
+    params.push(patch.cost_usd);
+  }
+  if ("cost_source" in patch) {
+    sets.push("cost_source = ?");
+    params.push(patch.cost_source);
+  }
+  if ("cost_components" in patch) {
+    sets.push("cost_components = ?");
+    params.push(patch.cost_components ? JSON.stringify(patch.cost_components) : null);
+  }
+  if ("status" in patch) {
+    sets.push("status = ?");
+    params.push(patch.status);
+  }
+  if ("result_url" in patch) {
+    sets.push("result_url = ?");
+    params.push(patch.result_url);
+  }
+  if ("error" in patch) {
+    sets.push("error = ?");
+    params.push(patch.error);
+  }
+  if (sets.length === 0) return null;
+  params.push(id);
+  return db
+    .prepare(`UPDATE media_generations SET ${sets.join(", ")} WHERE id = ?`)
+    .run(...params);
+}
+
+export function findMediaGenerationByJobId(jobId: string) {
+  const db = getDb();
+  return db
+    .prepare("SELECT * FROM media_generations WHERE job_id = ?")
+    .get(jobId) as MediaGenerationRow | undefined;
+}
+
+export interface MediaGenerationRow {
+  id: number;
+  timestamp: string;
+  kind: MediaKind;
+  brand_slug: string | null;
+  model_id: string;
+  prompt: string;
+  history_id: number | null;
+  duration_sec: number | null;
+  aspect_ratio: string | null;
+  image_size: string | null;
+  image_count: number | null;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  cost_usd: number;
+  cost_source: CostSource;
+  cost_components: string | null;
+  status: MediaStatus;
+  result_url: string | null;
+  job_id: string | null;
+  error: string | null;
+  created_by: string | null;
+}
+
+export interface UsageRow {
+  brand_slug: string;
+  kind: MediaKind | "(all)";
+  model_id: string | "(all)";
+  month: string;
+  runs: number;
+  usd: number;
+}
+
+export interface UsageSummary {
+  /** All-time and current-month totals, per brand. */
+  byBrand: { brand_slug: string; total_usd: number; month_usd: number; runs: number }[];
+  /** Detailed breakdown rows: brand × model × month. */
+  rows: UsageRow[];
+  /** Sum of cost_usd from rows whose cost_source = 'computed' or 'unknown' (i.e. not provider-verified). */
+  estimatedUsd: number;
+  /** Sum of cost_usd from rows whose cost_source = 'provider'. */
+  providerUsd: number;
+}
+
+export function getUsage(filters?: {
+  brand_slug?: string;
+  since?: string;
+  created_by?: string;
+}): UsageSummary {
+  const db = getDb();
+  const conditions: string[] = ["status = 'success'"];
+  const params: unknown[] = [];
+  if (filters?.brand_slug) {
+    conditions.push("brand_slug = ?");
+    params.push(filters.brand_slug);
+  }
+  if (filters?.since) {
+    conditions.push("timestamp >= ?");
+    params.push(filters.since);
+  }
+  if (filters?.created_by) {
+    conditions.push("created_by = ?");
+    params.push(filters.created_by.toLowerCase());
+  }
+  const where = `WHERE ${conditions.join(" AND ")}`;
+
+  const monthStart = new Date();
+  monthStart.setUTCDate(1);
+  monthStart.setUTCHours(0, 0, 0, 0);
+  const monthIso = monthStart.toISOString().slice(0, 19).replace("T", " ");
+
+  const byBrand = db
+    .prepare(
+      `SELECT
+         COALESCE(brand_slug, '(none)') AS brand_slug,
+         COUNT(*) AS runs,
+         ROUND(SUM(cost_usd), 4) AS total_usd,
+         ROUND(SUM(CASE WHEN timestamp >= ? THEN cost_usd ELSE 0 END), 4) AS month_usd
+       FROM media_generations
+       ${where}
+       GROUP BY brand_slug
+       ORDER BY total_usd DESC`
+    )
+    .all(monthIso, ...params) as {
+    brand_slug: string;
+    runs: number;
+    total_usd: number;
+    month_usd: number;
+  }[];
+
+  const rows = db
+    .prepare(
+      `SELECT
+         COALESCE(brand_slug, '(none)') AS brand_slug,
+         kind,
+         model_id,
+         strftime('%Y-%m', timestamp) AS month,
+         COUNT(*) AS runs,
+         ROUND(SUM(cost_usd), 4) AS usd
+       FROM media_generations
+       ${where}
+       GROUP BY brand_slug, kind, model_id, month
+       ORDER BY month DESC, usd DESC`
+    )
+    .all(...params) as UsageRow[];
+
+  const totals = db
+    .prepare(
+      `SELECT
+         ROUND(SUM(CASE WHEN cost_source = 'provider' THEN cost_usd ELSE 0 END), 4) AS provider_usd,
+         ROUND(SUM(CASE WHEN cost_source != 'provider' THEN cost_usd ELSE 0 END), 4) AS estimated_usd
+       FROM media_generations
+       ${where}`
+    )
+    .get(...params) as { provider_usd: number | null; estimated_usd: number | null };
+
+  return {
+    byBrand,
+    rows,
+    estimatedUsd: totals.estimated_usd ?? 0,
+    providerUsd: totals.provider_usd ?? 0,
+  };
 }
 
 export interface InsightsRow {

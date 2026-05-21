@@ -8,7 +8,9 @@ import { saveToHistory } from "@/lib/db";
 import { compressImageBase64 } from "@/lib/image-compress";
 import { CONFIG_DIR } from "@/lib/paths";
 import { requireUser } from "@/lib/auth-helpers";
-import type { Mode, OutputTarget, Software, ModelPreferences } from "@/lib/types";
+import { getProduct, getProductFile } from "@/lib/products";
+import { pickProductImages, type ProductPick } from "@/lib/product-picker";
+import type { Mode, OutputTarget, Creator, ModelPreferences, ProductAsset } from "@/lib/types";
 import { getDefaultTarget } from "@/lib/types";
 
 function loadModelPrefs(): ModelPreferences {
@@ -54,7 +56,7 @@ async function handleGenerate(request: NextRequest) {
   const body = await request.json();
   const {
     mode,
-    software,
+    creator,
     outputTarget: clientOutputTarget,
     brandSlug,
     instruction,
@@ -63,9 +65,11 @@ async function handleGenerate(request: NextRequest) {
     hasPaintedImages,
     includeAudio,
     selectedModel,
+    charBudget,
+    selectedProductIds,
   } = body as {
     mode: Mode;
-    software?: Software;
+    creator?: string;
     outputTarget?: OutputTarget;
     brandSlug: string | null;
     instruction: string;
@@ -74,6 +78,8 @@ async function handleGenerate(request: NextRequest) {
     hasPaintedImages?: boolean;
     includeAudio?: boolean;
     selectedModel?: string;
+    charBudget?: number;
+    selectedProductIds?: string[];
   };
 
   if (!apiKey) {
@@ -90,24 +96,66 @@ async function handleGenerate(request: NextRequest) {
     );
   }
 
+  // Resolve selected products → assets, pick best image per product based on instruction
+  const selectedProducts: ProductAsset[] = [];
+  if (brandSlug && Array.isArray(selectedProductIds) && selectedProductIds.length > 0) {
+    for (const id of selectedProductIds) {
+      if (typeof id !== "string") continue;
+      const p = getProduct(brandSlug, id);
+      if (p && p.images.length > 0) selectedProducts.push(p);
+    }
+  }
+
+  let productPicks: ProductPick[] = [];
+  if (selectedProducts.length > 0) {
+    productPicks = await pickProductImages(
+      selectedProducts,
+      instruction,
+      apiKey,
+      "google/gemini-2.5-flash-lite"
+    );
+  }
+
+  // Load picked product images from disk → base64 so they can be sent to the model
+  const productPrimaryImages: { base64: string; mimeType: string }[] = [];
+  for (const pick of productPicks) {
+    const product = selectedProducts.find((p) => p.id === pick.productId);
+    if (!product) continue;
+    const file = getProductFile(product.brandSlug, pick.filename);
+    if (!file) continue;
+    const mimeType =
+      file.ext === ".png"
+        ? "image/png"
+        : file.ext === ".webp"
+        ? "image/webp"
+        : file.ext === ".gif"
+        ? "image/gif"
+        : "image/jpeg";
+    productPrimaryImages.push({
+      base64: file.buffer.toString("base64"),
+      mimeType,
+    });
+  }
+
+  const combinedPrimary = [...productPrimaryImages, ...(primaryImages ?? [])];
+
   const isTextToMode = mode === "text_to_image" || mode === "text_to_video";
-  if (!isTextToMode && !primaryImages?.length) {
+  if (!isTextToMode && combinedPrimary.length === 0) {
     return Response.json(
       { error: "At least one primary image is required" },
       { status: 400 }
     );
   }
 
-  const resolvedSoftware: Software = software ?? "other";
+  const resolvedCreator = (creator ?? "google") as Creator;
   const outputTarget: OutputTarget =
-    clientOutputTarget ?? getDefaultTarget(resolvedSoftware, mode);
+    clientOutputTarget ?? getDefaultTarget(resolvedCreator, mode);
 
   const brandCtx = brandSlug ? await getBrandContext(brandSlug) : undefined;
 
-  const systemPrompt = buildSystemPrompt(
+  let systemPrompt = buildSystemPrompt(
     mode,
     outputTarget,
-    resolvedSoftware,
     Boolean(hasPaintedImages),
     Boolean(includeAudio),
     brandCtx
@@ -119,8 +167,21 @@ async function handleGenerate(request: NextRequest) {
           legal: brandCtx.legal,
           hasStyleImages: (brandCtx.styleImages?.length ?? 0) > 0,
         }
-      : undefined
+      : undefined,
+    charBudget
   );
+
+  if (selectedProducts.length > 1) {
+    const names = selectedProducts.map((p) => `"${p.name}"`).join(", ");
+    systemPrompt += `\n\n## Multi-product composition (REQUIRED)
+The user selected ${selectedProducts.length} products: ${names}. The first ${selectedProducts.length} primary images attached are these products (in upload order). The final image MUST include ALL of these products together in a single cohesive composition. Describe how they relate spatially (placement, scale, foreground/background) and ensure each product is clearly visible and identifiable. Preserve each product's appearance exactly as shown — do not alter shape, color, packaging, logos, or labels.`;
+  } else if (selectedProducts.length === 1) {
+    const pick = productPicks[0];
+    if (pick) {
+      systemPrompt += `\n\n## Selected product reference
+The first primary image attached is "${selectedProducts[0].name}" (variant: "${pick.label}"${pick.description ? ` — ${pick.description}` : ""}). Treat this product as the immutable subject of the composition: preserve its shape, color, packaging, logos, and labels exactly as shown.`;
+    }
+  }
 
   const rulesHash = getRulesHash();
   const systemPromptHash = hashSystemPrompt(systemPrompt);
@@ -130,14 +191,14 @@ async function handleGenerate(request: NextRequest) {
 
   const userContent: OpenAI.ChatCompletionContentPart[] = [];
 
-  if (primaryImages?.length > 0) {
+  if (combinedPrimary.length > 0) {
     userContent.push({
       type: "text",
       text: isTextToMode
         ? "=== Style references (do NOT copy contents — use only as visual style hints) ==="
         : "=== Images to edit/animate ===",
     });
-    for (const img of primaryImages) {
+    for (const img of combinedPrimary) {
       const processed = await processImage(img);
       userContent.push({
         type: "image_url",
@@ -265,6 +326,14 @@ async function handleGenerate(request: NextRequest) {
             controller.enqueue(
               encoder.encode(`data: ${JSON.stringify({ status: "connected", model: modelLabel })}\n\n`)
             );
+
+            if (productPicks.length > 0) {
+              controller.enqueue(
+                encoder.encode(
+                  `data: ${JSON.stringify({ productPicks })}\n\n`
+                )
+              );
+            }
 
             for await (const chunk of stream) {
               receivedFirstChunk = true;

@@ -1,8 +1,8 @@
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
-import type { Mode, OutputTarget, Software, BrandLegal, BrandVisual, BrandVoice } from "./types";
-import { getCharLimit, getSoftwareDisplayName } from "./types";
+import type { Mode, OutputTarget, Creator, BrandLegal, BrandVisual, BrandVoice } from "./types";
+import { getCharLimit } from "./types";
 import { CONFIG_DIR } from "./paths";
 
 interface TargetExample {
@@ -40,6 +40,9 @@ interface PromptRules {
     firefly: TargetRules;
     gpt_image: TargetRules;
     seedance: TargetRules;
+    flux2: TargetRules;
+    kling: TargetRules;
+    gemini_image: TargetRules;
   };
   overlays: {
     photoshop: OverlayRules;
@@ -56,6 +59,9 @@ const TARGET_RULE_KEY: Record<OutputTarget, TargetRuleKey> = {
   firefly: "firefly",
   gpt_image: "gpt_image",
   seedance: "seedance",
+  flux2: "flux2",
+  kling: "kling",
+  gemini_image: "gemini_image",
 };
 
 let cachedRules: PromptRules | null = null;
@@ -75,7 +81,7 @@ export function validateRules(r: unknown): asserts r is PromptRules {
   if (!Array.isArray(rec.global_rules)) throw new Error("prompt-rules.json: global_rules must be an array");
   const targets = rec.targets as Record<string, Record<string, unknown>> | undefined;
   if (!targets) throw new Error("prompt-rules.json: missing targets");
-  for (const key of ["nano_banana", "veo", "gen4_5", "firefly", "gpt_image", "seedance"]) {
+  for (const key of ["nano_banana", "veo", "gen4_5", "firefly", "gpt_image", "seedance", "flux2", "kling", "gemini_image"]) {
     const t = targets[key];
     if (!t) throw new Error(`prompt-rules.json: missing targets.${key}`);
     for (const field of ["skeleton", "output_format"]) {
@@ -153,6 +159,9 @@ const TARGET_NAMES: Record<OutputTarget, string> = {
   firefly: "Adobe Firefly (used in the Firefly web app or Photoshop)",
   gpt_image: "OpenAI GPT Image (accessed via ChatGPT on the web)",
   seedance: "Seedance 2.0 (accessed via Higgsfield AI at higgsfield.ai)",
+  flux2: "Black Forest Labs FLUX.2 (image generation — prose-style prompts with industry-leading text rendering)",
+  kling: "Kuaishou Kling (video generation — strong on action, anime, and first/last-frame keyframing)",
+  gemini_image: "Google Gemini Image (conversational multimodal image generation with strong text rendering)",
 };
 
 const TARGET_SHORT: Record<OutputTarget, string> = {
@@ -162,6 +171,9 @@ const TARGET_SHORT: Record<OutputTarget, string> = {
   firefly: "Adobe Firefly",
   gpt_image: "GPT Image",
   seedance: "Seedance 2.0",
+  flux2: "FLUX.2",
+  kling: "Kling",
+  gemini_image: "Gemini Image",
 };
 
 function isAudioRule(text: string): boolean {
@@ -190,7 +202,6 @@ function renderExamples(examples: TargetExample[]): string {
 export function buildSystemPrompt(
   mode: Mode,
   outputTarget: OutputTarget,
-  software: Software,
   hasPaintedImages: boolean,
   includeAudio: boolean,
   brandContext?: {
@@ -200,14 +211,13 @@ export function buildSystemPrompt(
     visual?: BrandVisual;
     legal?: BrandLegal;
     hasStyleImages?: boolean;
-  }
+  },
+  charBudget?: number
 ): string {
   const rules = loadRules();
   const targetFull = TARGET_NAMES[outputTarget];
   const targetShort = TARGET_SHORT[outputTarget];
   const target = rules.targets[TARGET_RULE_KEY[outputTarget]];
-
-  const isPhotoshop = software === "photoshop";
 
   // Veo-specific audio handling: when audio is disabled, strip audio mentions
   // from must_include and rules so they don't conflict with the explicit "no audio" instruction.
@@ -222,18 +232,22 @@ export function buildSystemPrompt(
     ];
   }
 
-  const charLimit = getCharLimit(software, outputTarget);
+  const charLimit = getCharLimit(outputTarget);
+  const effectiveHard = charBudget
+    ? Math.min(charBudget, charLimit.hard)
+    : charLimit.hard;
+  const effectiveSoft = charBudget
+    ? `${Math.round(effectiveHard * 0.85)}–${effectiveHard} characters`
+    : charLimit.soft;
 
-  const softwareName = getSoftwareDisplayName(software, outputTarget);
-
-  let systemPrompt = `You are an expert prompt engineer. The user is working in ${softwareName}, which uses the ${targetFull} model under the hood. Your sole job is to write one single polished prompt ready to paste directly into ${softwareName}.
+  let systemPrompt = `You are an expert prompt engineer. The user will generate the final output directly inside this app's built-in generator, which routes the prompt to the ${targetFull} model. Your sole job is to write one single polished prompt that will be sent verbatim to that model.
 
 Output ONLY the prompt — no preamble, no explanation, no markdown formatting, no quotes around the prompt, no labels.
 
 ## Length target (use the full budget)
-Aim for ${charLimit.soft}. The interface enforces a ${charLimit.hard}-character hard ceiling — stay under it, but DO use most of the available room. A short, sparse prompt is a FAILURE: this model accepts ${charLimit.hard} characters because rich, specific detail produces better generations.${isPhotoshop ? "" : `
+Aim for ${effectiveSoft}. The interface enforces a ${effectiveHard}-character hard ceiling — stay under it, but DO use most of the available room. A short, sparse prompt is a FAILURE: this model accepts ${effectiveHard} characters because rich, specific detail produces better generations.
 
-Pack the prompt with concrete, named detail across every dimension the format calls for: subject (materials, surfaces, micro-textures, wear, age, posture, expression), environment (architecture, props, weather, time of day, atmospheric haze, depth cues), lighting (source, direction, quality, color temperature, contrast, shadow shape), composition (framing, camera height, lens, depth of field, foreground/midground/background layering), and style (medium, mood, color palette, era references where allowed by platform rules). Every clause should add information the generator can act on; only cut a word if it is a true filler ("very", "really", "somewhat") or a duplicate of something already stated.`}
+Pack the prompt with concrete, named detail across every dimension the format calls for: subject (materials, surfaces, micro-textures, wear, age, posture, expression), environment (architecture, props, weather, time of day, atmospheric haze, depth cues), lighting (source, direction, quality, color temperature, contrast, shadow shape), composition (framing, camera height, lens, depth of field, foreground/midground/background layering), and style (medium, mood, color palette, era references where allowed by platform rules). Every clause should add information the generator can act on; only cut a word if it is a true filler ("very", "really", "somewhat") or a duplicate of something already stated.
 
 ## Output format
 ${target.output_format}
@@ -262,48 +276,6 @@ ${rules.global_rules.map((r) => `- ${r}`).join("\n")}
 ## Detailed ${targetShort} rules (apply alongside the structure above)
 ${detailedRules.map((r) => `- ${r}`).join("\n")}`;
 
-  if (isPhotoshop) {
-    const ps = rules.overlays.photoshop;
-    const sections: string[] = [];
-    if (ps.skeleton) sections.push(`Required structure: ${ps.skeleton}`);
-    if (ps.must_include?.length) {
-      sections.push(`Must include:\n${ps.must_include.map((r) => `- ${r}`).join("\n")}`);
-    }
-    if (ps.must_avoid?.length) {
-      sections.push(`Anti-patterns (NEVER do these):\n${ps.must_avoid.map((r) => `- ${r}`).join("\n")}`);
-    }
-    sections.push(`Detailed rules:\n${ps.rules.map((r) => `- ${r}`).join("\n")}`);
-    if (ps.examples?.length) {
-      sections.push(`Photoshop example:\n${renderExamples(ps.examples)}`);
-    }
-    systemPrompt += `\n\n## Photoshop Generative Fill rules (override conflicting rules above)
-${sections.join("\n\n")}`;
-  }
-
-  const isImageToVideo =
-    (mode === "animate_single" || mode === "animate_keyframes") &&
-    (
-      (software === "runway" && (outputTarget === "veo" || outputTarget === "gen4_5")) ||
-      (software === "firefly" && outputTarget === "gen4_5")
-    );
-  if (isImageToVideo && rules.overlays.runway_image_to_video.rules.length) {
-    const i2v = rules.overlays.runway_image_to_video;
-    const sections: string[] = [];
-    if (i2v.skeleton) sections.push(`Required structure: ${i2v.skeleton}`);
-    if (i2v.must_include?.length) {
-      sections.push(`Must include:\n${i2v.must_include.map((r) => `- ${r}`).join("\n")}`);
-    }
-    if (i2v.must_avoid?.length) {
-      sections.push(`Anti-patterns (NEVER do these):\n${i2v.must_avoid.map((r) => `- ${r}`).join("\n")}`);
-    }
-    sections.push(`Detailed rules:\n${i2v.rules.map((r) => `- ${r}`).join("\n")}`);
-    if (i2v.examples?.length) {
-      sections.push(`Image-to-Video example:\n${renderExamples(i2v.examples)}`);
-    }
-    systemPrompt += `\n\n## Image-to-Video rules (the user is animating FROM an uploaded image — these rules take priority for motion prompting)
-${sections.join("\n\n")}`;
-  }
-
   if (hasPaintedImages) {
     systemPrompt += `\n\n## User-highlighted areas
 The user has painted colored brush strokes (typically magenta) on one or more uploaded images to mark the areas they want you to focus on. Treat those highlighted regions as the subject of the edit/animation. Describe ONLY what should happen in those marked areas; ignore unmarked regions unless they are essential context. The colored strokes themselves are annotations — do not mention or describe the strokes in the output prompt.`;
@@ -319,7 +291,7 @@ CRITICAL REQUIREMENTS:
 3. Each prompt describes ONLY the background/environment — never describe the foreground subject (person, object). Runway keeps the subject; you are replacing everything behind it.
 4. Analyze each clip's subject lighting (direction, color temperature, intensity) and adapt the environment's lighting to match naturally, but keep the environment itself identical across clips.
 5. Be specific about surfaces, materials, depth, and spatial cues so the backdrop looks physically grounded — not like a flat wallpaper.
-6. Each individual prompt should aim for ${charLimit.soft} — use the full budget for rich descriptive detail without exceeding the ${charLimit.hard}-character hard limit.
+6. Each individual prompt should aim for ${effectiveSoft} — use the full budget for rich descriptive detail without exceeding the ${effectiveHard}-character hard limit.
 
 OUTPUT FORMAT — follow exactly:
 ===CLIP 1===

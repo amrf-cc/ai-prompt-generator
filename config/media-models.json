@@ -1,0 +1,234 @@
+{
+  "image": [
+    {
+      "id": "openrouter/auto",
+      "name": "Auto (Best Available)",
+      "provider": "OpenRouter",
+      "tier": "auto",
+      "priceNote": "Varies — routes to top-ranked model",
+      "supportsImageInput": true,
+      "pricing": { "kind": "unknown" }
+    },
+    {
+      "id": "openai/gpt-5-image",
+      "name": "GPT-5 Image",
+      "provider": "OpenAI",
+      "tier": "pro",
+      "priceNote": "$10/M tokens",
+      "supportsImageInput": true,
+      "pricing": { "kind": "per_token", "inputUsdPerMillion": 10, "outputUsdPerMillion": 10 }
+    },
+    {
+      "id": "openai/gpt-5.4-image-2",
+      "name": "GPT-5.4 Image 2",
+      "provider": "OpenAI",
+      "tier": "pro",
+      "priceNote": "$8/M in · $15/M out",
+      "supportsImageInput": true,
+      "pricing": { "kind": "per_token", "inputUsdPerMillion": 8, "outputUsdPerMillion": 15 }
+    },
+    {
+      "id": "google/gemini-3-pro-image-preview",
+      "name": "Gemini 3 Pro Image",
+      "provider": "Google",
+      "tier": "pro",
+      "priceNote": "$2/M in · $12/M out",
+      "supportsImageInput": true,
+      "pricing": { "kind": "per_token", "inputUsdPerMillion": 2, "outputUsdPerMillion": 12 }
+    },
+    {
+      "id": "black-forest-labs/flux.2-max",
+      "name": "FLUX.2 Max",
+      "provider": "Black Forest Labs",
+      "tier": "pro",
+      "priceNote": "$0.07/MP out",
+      "supportsImageInput": false,
+      "pricing": { "kind": "per_megapixel", "usd": 0.07 }
+    },
+    {
+      "id": "black-forest-labs/flux.2-pro",
+      "name": "FLUX.2 Pro",
+      "provider": "Black Forest Labs",
+      "tier": "pro",
+      "priceNote": "$0.03/MP out",
+      "supportsImageInput": false,
+      "pricing": { "kind": "per_megapixel", "usd": 0.03 }
+    },
+    {
+      "id": "google/gemini-2.5-flash-image",
+      "name": "Gemini 2.5 Flash",
+      "provider": "Google",
+      "tier": "budget",
+      "priceNote": "$0.30/M in · $2.50/M out",
+      "supportsImageInput": true,
+      "pricing": { "kind": "per_token", "inputUsdPerMillion": 0.30, "outputUsdPerMillion": 2.50 }
+    },
+    {
+      "id": "google/gemini-3.1-flash-image-preview",
+      "name": "Gemini 3.1 Flash",
+      "provider": "Google",
+      "tier": "budget",
+      "priceNote": "$0.50/M in · $3/M out",
+      "supportsImageInput": true,
+      "pricing": { "kind": "per_token", "inputUsdPerMillion": 0.50, "outputUsdPerMillion": 3 }
+    },
+    {
+      "id": "openai/gpt-5-image-mini",
+      "name": "GPT-5 Image Mini",
+      "provider": "OpenAI",
+      "tier": "budget",
+      "priceNote": "$2.50/M in · $2/M out",
+      "supportsImageInput": true,
+      "pricing": { "kind": "per_token", "inputUsdPerMillion": 2.50, "outputUsdPerMillion": 2 }
+    },
+    {
+      "id": "black-forest-labs/flux.2-klein-4b",
+      "name": "FLUX.2 Klein 4B",
+      "provider": "Black Forest Labs",
+      "tier": "budget",
+      "priceNote": "$0.014/MP out",
+      "supportsImageInput": false,
+      "pricing": { "kind": "per_megapixel", "usd": 0.014 }
+    },
+    {
+      "id": "bytedance-seed/seedream-4.5",
+      "name": "Seedream 4.5",
+      "provider": "ByteDance Seed",
+      "tier": "budget",
+      "priceNote": "$0.04/image",
+      "supportsImageInput": false,
+      "pricing": { "kind": "per_image", "usd": 0.04 }
+    },
+    {
+      "id": "sourceful/riverflow-v2-fast",
+      "name": "Riverflow V2 Fast",
+      "provider": "Sourceful",
+      "tier": "budget",
+      "priceNote": "$0.02–0.04/image",
+      "supportsImageInput": false,
+      "pricing": { "kind": "per_image", "usd": 0.03 }
+    }
+  ],
+  "video": [
+    {
+      "id": "kwaivgi/kling-v3.0-pro",
+      "name": "Kling v3.0 Pro",
+      "provider": "Kuaishou",
+      "tier": "pro",
+      "priceNote": "$0.168/sec",
+      "supportsImageInput": true,
+      "supportsFirstLastFrame": true,
+      "supportsAudio": true,
+      "maxDuration": 15,
+      "pricing": { "kind": "per_second", "usd": 0.168 }
+    },
+    {
+      "id": "google/veo-3.1-fast",
+      "name": "Veo 3.1",
+      "provider": "Google",
+      "tier": "pro",
+      "priceNote": "$0.40/sec",
+      "supportsImageInput": true,
+      "supportsFirstLastFrame": true,
+      "supportsAudio": true,
+      "maxDuration": 8,
+      "pricing": { "kind": "per_second", "usd": 0.40 }
+    },
+    {
+      "id": "kwaivgi/kling-video-o1",
+      "name": "Kling Video O1",
+      "provider": "Kuaishou",
+      "tier": "pro",
+      "priceNote": "$0.112/sec",
+      "supportsImageInput": true,
+      "supportsFirstLastFrame": false,
+      "supportsAudio": false,
+      "maxDuration": 10,
+      "pricing": { "kind": "per_second", "usd": 0.112 }
+    },
+    {
+      "id": "bytedance/seedance-2.0",
+      "name": "Seedance 2.0",
+      "provider": "ByteDance",
+      "tier": "pro",
+      "priceNote": "$7/M tokens",
+      "supportsImageInput": true,
+      "supportsFirstLastFrame": true,
+      "supportsAudio": false,
+      "maxDuration": 15,
+      "pricing": { "kind": "per_token", "inputUsdPerMillion": 7, "outputUsdPerMillion": 7 }
+    },
+    {
+      "id": "minimax/hailuo-2.3",
+      "name": "Hailuo 2.3",
+      "provider": "MiniMax",
+      "tier": "pro",
+      "priceNote": "mid-tier",
+      "supportsImageInput": true,
+      "supportsFirstLastFrame": false,
+      "supportsAudio": false,
+      "maxDuration": 10,
+      "pricing": { "kind": "unknown" }
+    },
+    {
+      "id": "x-ai/grok-imagine-video",
+      "name": "Grok Imagine Video",
+      "provider": "xAI",
+      "tier": "budget",
+      "priceNote": "$0.05/sec",
+      "supportsImageInput": true,
+      "supportsFirstLastFrame": false,
+      "supportsAudio": false,
+      "maxDuration": 10,
+      "pricing": { "kind": "per_second", "usd": 0.05 }
+    },
+    {
+      "id": "kwaivgi/kling-v3.0-std",
+      "name": "Kling v3.0 Standard",
+      "provider": "Kuaishou",
+      "tier": "budget",
+      "priceNote": "$0.126/sec",
+      "supportsImageInput": true,
+      "supportsFirstLastFrame": true,
+      "supportsAudio": true,
+      "maxDuration": 15,
+      "pricing": { "kind": "per_second", "usd": 0.126 }
+    },
+    {
+      "id": "google/veo-3.1-lite",
+      "name": "Veo 3.1 Lite",
+      "provider": "Google",
+      "tier": "budget",
+      "priceNote": "< $0.40/sec",
+      "supportsImageInput": true,
+      "supportsFirstLastFrame": false,
+      "supportsAudio": false,
+      "maxDuration": 8,
+      "pricing": { "kind": "per_second", "usd": 0.30 }
+    },
+    {
+      "id": "bytedance/seedance-2.0-fast",
+      "name": "Seedance 2.0 Fast",
+      "provider": "ByteDance",
+      "tier": "budget",
+      "priceNote": "budget",
+      "supportsImageInput": true,
+      "supportsFirstLastFrame": true,
+      "supportsAudio": false,
+      "maxDuration": 10,
+      "pricing": { "kind": "unknown" }
+    },
+    {
+      "id": "alibaba/wan-2.7",
+      "name": "Wan 2.7",
+      "provider": "Alibaba",
+      "tier": "budget",
+      "priceNote": "budget",
+      "supportsImageInput": true,
+      "supportsFirstLastFrame": false,
+      "supportsAudio": false,
+      "maxDuration": 10,
+      "pricing": { "kind": "unknown" }
+    }
+  ]
+}

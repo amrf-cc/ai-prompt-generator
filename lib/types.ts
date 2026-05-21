@@ -14,9 +14,19 @@ export type OutputTarget =
   | "firefly"
   | "gpt_image"
   | "seedance"
-  | "gen4_5";
+  | "gen4_5"
+  | "flux2"
+  | "kling"
+  | "gemini_image";
 
-export type Software = "photoshop" | "firefly" | "runway" | "other";
+export type Creator =
+  | "google"
+  | "adobe"
+  | "openai"
+  | "bytedance"
+  | "runway"
+  | "bfl"
+  | "kuaishou";
 
 export const MODES: { value: Mode; label: string; videoOnly: boolean }[] = [
   {
@@ -53,166 +63,99 @@ export const MODES: { value: Mode; label: string; videoOnly: boolean }[] = [
   },
 ];
 
-export const OUTPUT_TARGETS: { value: OutputTarget; label: string; type: ("image" | "video")[] }[] = [
-  { value: "nano_banana", label: "Nano Banana", type: ["image"] },
-  { value: "veo", label: "Veo", type: ["video"] },
-  { value: "gen4_5", label: "Runway Gen 4.5", type: ["video"] },
-  { value: "firefly", label: "Adobe Firefly", type: ["image", "video"] },
-  { value: "gpt_image", label: "GPT Image", type: ["image"] },
-  { value: "seedance", label: "Seedance 2.0", type: ["video"] },
-];
-
-export const SOFTWARES: {
-  value: Software;
+export const OUTPUT_TARGETS: {
+  value: OutputTarget;
   label: string;
-  description: string;
-  supportsVideo: boolean;
-  availableTargets: OutputTarget[];
+  creator: Creator;
+  type: ("image" | "video")[];
 }[] = [
-  {
-    value: "other",
-    label: "Other",
-    description:
-      "Use each model's native web app — Gemini (web) for Nano Banana / Veo, ChatGPT (web) for GPT Image, Firefly (web) for Adobe Firefly, Higgsfield.ai for Seedance",
-    supportsVideo: true,
-    availableTargets: ["nano_banana", "veo", "firefly", "gpt_image", "seedance"],
-  },
-  {
-    value: "photoshop",
-    label: "Photoshop",
-    description: "Generative Fill / Expand — selection-based, very short prompts",
-    supportsVideo: false,
-    availableTargets: ["firefly", "nano_banana"],
-  },
-  {
-    value: "firefly",
-    label: "Adobe Firefly (web)",
-    description: "Firefly web app — descriptive prompts, ≤1000 characters. Also supports Runway Gen 4.5 for video.",
-    supportsVideo: true,
-    availableTargets: ["firefly", "nano_banana", "veo", "gen4_5"],
-  },
-  {
-    value: "runway",
-    label: "Runway",
-    description:
-      "RunwayML — Nano Banana for images, Gen 4.5 or Veo for video. Also the default platform for Seedance 2.0 (paste on Higgsfield.ai).",
-    supportsVideo: true,
-    availableTargets: ["nano_banana", "veo", "gen4_5", "seedance"],
-  },
+  { value: "nano_banana", label: "Nano Banana", creator: "google", type: ["image"] },
+  { value: "veo", label: "Veo", creator: "google", type: ["video"] },
+  { value: "gen4_5", label: "Runway Gen 4.5", creator: "runway", type: ["video"] },
+  { value: "firefly", label: "Adobe Firefly", creator: "adobe", type: ["image", "video"] },
+  { value: "gpt_image", label: "GPT Image", creator: "openai", type: ["image"] },
+  { value: "seedance", label: "Seedance 2.0", creator: "bytedance", type: ["video"] },
+  { value: "flux2", label: "FLUX.2", creator: "bfl", type: ["image"] },
+  { value: "kling", label: "Kling", creator: "kuaishou", type: ["video"] },
+  { value: "gemini_image", label: "Gemini Image", creator: "google", type: ["image"] },
 ];
 
-export function getAvailableModes(software: Software): typeof MODES {
-  if (software === "photoshop") {
-    return MODES.filter((m) => m.value === "edit_single");
-  }
-  const sw = SOFTWARES.find((s) => s.value === software)!;
-  let modes = sw.supportsVideo ? MODES : MODES.filter((m) => !m.videoOnly);
-  // Video Backdrop is Runway-only
-  if (software !== "runway") {
-    modes = modes.filter((m) => m.value !== "video_backdrop");
-  }
-  return modes;
+export const CREATORS: {
+  value: Creator;
+  label: string;
+  targets: OutputTarget[];
+}[] = [
+  { value: "google", label: "Google", targets: ["nano_banana", "veo", "gemini_image"] },
+  { value: "adobe", label: "Adobe", targets: ["firefly"] },
+  { value: "openai", label: "OpenAI", targets: ["gpt_image"] },
+  { value: "bytedance", label: "ByteDance", targets: ["seedance"] },
+  { value: "runway", label: "Runway", targets: ["gen4_5"] },
+  { value: "bfl", label: "Black Forest Labs", targets: ["flux2"] },
+  { value: "kuaishou", label: "Kuaishou", targets: ["kling"] },
+];
+
+/** Map from target back to its creator. */
+export function targetToCreator(target: OutputTarget): Creator {
+  const entry = OUTPUT_TARGETS.find((t) => t.value === target);
+  return entry?.creator ?? "google";
 }
 
-export function getAvailableTargets(
-  software: Software,
-  mode: Mode
-): OutputTarget[] {
-  const sw = SOFTWARES.find((s) => s.value === software)!;
-  const isVideoMode = MODES.find((m) => m.value === mode)!.videoOnly;
-  const wantedType: "image" | "video" = isVideoMode ? "video" : "image";
-  return OUTPUT_TARGETS.filter(
-    (t) => t.type.includes(wantedType) && sw.availableTargets.includes(t.value)
-  ).map((t) => t.value);
+export function getModesForTypes(types: ("image" | "video")[]) {
+  return MODES.filter((m) => {
+    const modeType: "image" | "video" = m.videoOnly ? "video" : "image";
+    return types.includes(modeType);
+  });
 }
 
-export function getDefaultTarget(software: Software, mode: Mode): OutputTarget {
-  const targets = getAvailableTargets(software, mode);
-  if (targets.length === 0) {
-    return MODES.find((m) => m.value === mode)!.videoOnly ? "veo" : "nano_banana";
-  }
-  if (software === "photoshop" && targets.includes("firefly")) return "firefly";
-  if (software === "firefly" && targets.includes("firefly")) return "firefly";
-  if (software === "other") {
-    return MODES.find((m) => m.value === mode)!.videoOnly ? "veo" : "nano_banana";
-  }
-  return targets[0];
+export function getDefaultTarget(creator: Creator, mode: Mode): OutputTarget {
+  const videoMode = MODES.find((m) => m.value === mode)?.videoOnly ?? false;
+  const creatorTargets = CREATORS.find((c) => c.value === creator)?.targets ?? [];
+  const wantedType: "image" | "video" = videoMode ? "video" : "image";
+  const matching = creatorTargets.filter((t) =>
+    OUTPUT_TARGETS.find((o) => o.value === t)?.type.includes(wantedType)
+  );
+  return matching[0] ?? "nano_banana";
 }
 
-export function getCharLimit(
-  software: Software,
-  target: OutputTarget
-): { hard: number; soft: string } {
-  if (software === "photoshop") {
-    return { hard: 500, soft: "2-4 descriptive sentences (~400 characters)" };
+export function getCharLimit(target: OutputTarget): { hard: number; soft: string } {
+  if (target === "veo") {
+    return {
+      hard: 2000,
+      soft: "220–290 words / ~1500–1850 characters of dense cinematographic detail",
+    };
   }
-  if (software === "firefly") {
-    if (target === "gen4_5") {
-      return { hard: 5000, soft: "600–750 words / ~3800–4700 characters of dense cinematographic detail" };
-    }
-    return { hard: 1000, soft: "800–1000 characters (use the full budget)" };
-  }
-  if (software === "runway") {
-    if (target === "veo" || target === "gen4_5") {
-      return { hard: 5000, soft: "600–750 words / ~3800–4700 characters of dense cinematographic detail" };
-    }
-    return { hard: 5000, soft: "3800–4700 characters (use the full budget)" };
-  }
-  if (software === "other") {
-    if (target === "veo") {
-      return {
-        hard: 2000,
-        soft:
-          "220–290 words / ~1500–1850 characters of dense cinematographic detail",
-      };
-    }
-    if (target === "gpt_image") {
-      return {
-        hard: 1500,
-        soft:
-          "moderate detail (~700–1000 characters), ordered scene → subject → key details → constraints — iterate, don't overload",
-      };
-    }
-    if (target === "seedance") {
-      return {
-        hard: 6000,
-        soft:
-          "800–1500 words — include beat-by-beat choreography, timed shot breakdowns, and a metadata line at the end (Total: 15s / N shots / 16:9)",
-      };
-    }
-    // nano_banana, firefly via Gemini/Firefly web app
-    return { hard: 1000, soft: "800–1000 characters (use the full budget)" };
-  }
-  if (target === "veo" || target === "gen4_5") {
-    return { hard: 2000, soft: "220–290 words / ~1500–1850 characters of dense cinematographic detail" };
+  if (target === "gpt_image") {
+    return {
+      hard: 1500,
+      soft: "moderate detail (~700–1000 characters), ordered scene → subject → key details → constraints — iterate, don't overload",
+    };
   }
   if (target === "seedance") {
     return {
       hard: 6000,
-      soft:
-        "800–1500 words — include beat-by-beat choreography, timed shot breakdowns, and a metadata line at the end (Total: 15s / N shots / 16:9)",
+      soft: "800–1500 words — include beat-by-beat choreography, timed shot breakdowns, and a metadata line at the end (Total: 15s / N shots / 16:9)",
     };
   }
+  if (target === "kling") {
+    return {
+      hard: 1500,
+      soft: "150–220 words of comma-separated clauses — subject + active verb up front, one camera motion, named lighting, single style anchor",
+    };
+  }
+  if (target === "gemini_image") {
+    return {
+      hard: 1500,
+      soft: "moderate detail (~700–1100 characters) in natural-language prose, ordered scene → subject → composition/lighting/medium → constraints",
+    };
+  }
+  if (target === "flux2") {
+    return {
+      hard: 1200,
+      soft: "natural-prose paragraph (~600–1000 characters); two to five sentences with concrete materials, lighting, and a single committed medium",
+    };
+  }
+  // nano_banana, firefly, gen4_5
   return { hard: 1000, soft: "800–1000 characters (use the full budget)" };
-}
-
-export function getSoftwareDisplayName(
-  software: Software,
-  target: OutputTarget
-): string {
-  const targetEntry = OUTPUT_TARGETS.find((t) => t.value === target);
-  const targetLabel = targetEntry?.label ?? target;
-  if (software === "photoshop") return "Adobe Photoshop's Generative Fill / Expand";
-  if (software === "firefly" && target === "gen4_5") return "RunwayML (Gen 4.5)";
-  if (software === "firefly") return "the Adobe Firefly web app";
-  if (software === "runway" && target === "seedance") return "Higgsfield AI (Seedance 2.0)";
-  if (software === "runway" && target === "gen4_5") return "RunwayML (Gen 4.5)";
-  if (software === "runway") return `RunwayML (${targetLabel})`;
-  // software === "other" — infer from the chosen model's provider web app
-  if (target === "gpt_image") return "ChatGPT (web)";
-  if (target === "firefly") return "the Adobe Firefly web app";
-  if (target === "seedance") return "Higgsfield AI (Seedance 2.0)";
-  return "the Gemini web app";
 }
 
 export interface BrandVoice {
@@ -256,6 +199,26 @@ export interface BrandProfile {
   owner_email?: string;
   /** When true, every authenticated user can see (but not necessarily edit) this brand. */
   shared?: boolean;
+}
+
+export interface ProductImage {
+  filename: string;
+  label: string;
+  description?: string;
+  url: string;
+}
+
+export interface ProductAsset {
+  id: string;
+  name: string;
+  /** First image's filename — kept for display fallbacks. */
+  filename: string;
+  /** First image's URL — kept for display fallbacks. */
+  url: string;
+  categories: string[];
+  brandSlug: string;
+  /** All images for this product, in display order. The first is the default. */
+  images: ProductImage[];
 }
 
 export type BrandExtractField = "voice" | "visual" | "legal";
@@ -320,4 +283,30 @@ export interface SelectorModel {
 export interface ModelPreferences {
   selector_models: SelectorModel[];
   openrouter_models: ModelConfig[];
+}
+
+export type MediaModelTier = "auto" | "pro" | "budget";
+
+export interface MediaModel {
+  id: string;
+  name: string;
+  provider: string;
+  tier: MediaModelTier;
+  priceNote: string;
+  supportsImageInput: boolean;
+  /** Which prompt rules to use when generating a prompt for this model */
+  promptTarget: OutputTarget;
+  /** False for image-only models (FLUX, Sourceful, Seedream) that don't accept modalities: ["image","text"] */
+  textOutput?: boolean;
+  /** Video only: supports passing first/last frame images */
+  supportsFirstLastFrame?: boolean;
+  /** Video only: supports native audio generation */
+  supportsAudio?: boolean;
+  /** Video only: maximum duration in seconds */
+  maxDuration?: number;
+}
+
+export interface MediaModelsConfig {
+  image: MediaModel[];
+  video: MediaModel[];
 }
