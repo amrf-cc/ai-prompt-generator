@@ -1,4 +1,5 @@
 {
+  "product_picker_model": "google/gemini-2.5-flash-lite",
   "selector_models": [
     { "id": "google/gemini-2.5-flash",                            "name": "Gemini 2.5 Flash",  "provider": "Google"    },
     { "id": "amazon/nova-premier-v1",                             "name": "Nova Premier",       "provider": "Amazon"    },

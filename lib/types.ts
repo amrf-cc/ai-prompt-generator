@@ -281,6 +281,8 @@ export interface SelectorModel {
 }
 
 export interface ModelPreferences {
+  /** Model used to pick the best reference image per product (server-side). */
+  product_picker_model?: string;
   selector_models: SelectorModel[];
   openrouter_models: ModelConfig[];
 }

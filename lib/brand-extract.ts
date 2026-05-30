@@ -1,10 +1,11 @@
-import OpenAI from "openai";
+import type OpenAI from "openai";
 import fs from "fs";
 import path from "path";
 import { compressImageBase64 } from "./image-compress";
 import { getBrandPdfText, getStyleImagesAsBase64 } from "./brands";
 import type { BrandExtractField, BrandLegal, BrandVisual, BrandVoice, ModelPreferences } from "./types";
 import { CONFIG_DIR } from "./paths";
+import { createOpenRouterClient } from "./openrouter";
 
 const SYSTEM_PROMPT = `You are an expert brand strategist. Given (a) the text of a brand's guidelines document and (b) a set of style-reference images, extract a structured JSON description of the brand.
 
@@ -43,16 +44,6 @@ function loadModelPrefs(): ModelPreferences {
   return JSON.parse(fs.readFileSync(prefsPath, "utf-8"));
 }
 
-function createClient(apiKey: string): OpenAI {
-  return new OpenAI({
-    apiKey,
-    baseURL: "https://openrouter.ai/api/v1",
-    defaultHeaders: {
-      "HTTP-Referer": "http://localhost:3000",
-      "X-Title": "AI Prompt Generator",
-    },
-  });
-}
 
 function buildUserContent(
   pdfText: string,
@@ -106,7 +97,7 @@ async function callExtract(
   const model = prefs.openrouter_models[0]?.id;
   if (!model) throw new Error("No models configured");
 
-  const client = createClient(apiKey);
+  const client = createOpenRouterClient(apiKey);
   const userContent = buildUserContent(pdfText, styleImages, schema);
 
   const response = await client.chat.completions.create({

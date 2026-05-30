@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import type { ProductAsset, ProductImage } from "./types";
+import { createOpenRouterClient } from "./openrouter";
 
 export interface ProductPick {
   productId: string;
@@ -10,17 +11,6 @@ export interface ProductPick {
   reason: string;
   /** True when the pick came from the LLM; false when we defaulted (single image or failure). */
   picked: boolean;
-}
-
-function createClient(apiKey: string): OpenAI {
-  return new OpenAI({
-    apiKey,
-    baseURL: "https://openrouter.ai/api/v1",
-    defaultHeaders: {
-      "HTTP-Referer": "http://localhost:3000",
-      "X-Title": "AI Prompt Generator",
-    },
-  });
 }
 
 function defaultPick(product: ProductAsset, reason: string): ProductPick {
@@ -156,6 +146,6 @@ export async function pickProductImages(
   modelId: string
 ): Promise<ProductPick[]> {
   if (products.length === 0) return [];
-  const client = createClient(apiKey);
+  const client = createOpenRouterClient(apiKey);
   return Promise.all(products.map((p) => pickOne(client, modelId, p, instruction)));
 }

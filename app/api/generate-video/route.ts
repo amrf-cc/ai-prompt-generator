@@ -2,6 +2,8 @@ import { NextRequest } from "next/server";
 import { requireUser } from "@/lib/auth-helpers";
 import { computeCost } from "@/lib/pricing";
 import { insertMediaGeneration } from "@/lib/db";
+import { OPENROUTER_HEADERS } from "@/lib/openrouter";
+import { normalizeVideoStatus } from "@/lib/video-status";
 
 interface FrameImage {
   type: "image_url";
@@ -64,8 +66,7 @@ export async function POST(request: NextRequest) {
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
-        "HTTP-Referer": "http://localhost:3000",
-        "X-Title": "Wondr Forge",
+        ...OPENROUTER_HEADERS,
       },
       body: JSON.stringify(payload),
     });
@@ -112,7 +113,11 @@ export async function POST(request: NextRequest) {
     }
 
     return Response.json(
-      { jobId: result.id, pollingUrl: result.polling_url, status: result.status },
+      {
+        jobId: result.id,
+        pollingUrl: result.polling_url,
+        status: normalizeVideoStatus(result.status),
+      },
       { status: 202 }
     );
   } catch (err) {

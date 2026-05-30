@@ -2,6 +2,8 @@ import { NextRequest } from "next/server";
 import { requireUser } from "@/lib/auth-helpers";
 import { computeCost } from "@/lib/pricing";
 import { findMediaGenerationByJobId, updateMediaGeneration } from "@/lib/db";
+import { OPENROUTER_HEADERS } from "@/lib/openrouter";
+import { normalizeVideoStatus } from "@/lib/video-status";
 
 export async function GET(
   _request: NextRequest,
@@ -21,8 +23,7 @@ export async function GET(
     const response = await fetch(`https://openrouter.ai/api/v1/videos/${jobId}`, {
       headers: {
         Authorization: `Bearer ${apiKey}`,
-        "HTTP-Referer": "http://localhost:3000",
-        "X-Title": "Wondr Forge",
+        ...OPENROUTER_HEADERS,
       },
     });
 
@@ -41,22 +42,27 @@ export async function GET(
     };
 
     const videoUrl = result.unsigned_urls?.[0] ?? null;
-    const isTerminal =
-      result.status === "completed" ||
-      result.status === "succeeded" ||
-      result.status === "success" ||
-      result.status === "failed" ||
-      result.status === "error";
+    // Collapse the provider's status vocabulary to the closed set the client
+    // reacts to. A "completed" job with no URL is treated as a failure so we
+    // never bill for or show a video we can't deliver.
+    const phase = normalizeVideoStatus(result.status, {
+      hasVideoUrl: videoUrl != null,
+      hasError: !!result.error,
+    });
 
-    if (isTerminal) {
+    let errorMessage = result.error ?? null;
+    if (phase !== "pending") {
       const existing = findMediaGenerationByJobId(jobId);
       if (existing && existing.status === "pending") {
-        const failed =
-          result.status === "failed" || result.status === "error" || !!result.error;
-        if (failed) {
+        if (phase === "failed") {
+          errorMessage =
+            errorMessage ??
+            (videoUrl == null
+              ? "Video finished but returned no downloadable URL"
+              : "video generation failed");
           updateMediaGeneration(existing.id, {
             status: "failed",
-            error: result.error ?? "video generation failed",
+            error: errorMessage,
             cost_usd: 0,
             cost_source: "unknown",
           });
@@ -89,9 +95,9 @@ export async function GET(
     }
 
     return Response.json({
-      status: result.status,
+      status: phase,
       videoUrl,
-      error: result.error ?? null,
+      error: errorMessage,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

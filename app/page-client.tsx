@@ -3620,8 +3620,7 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
   const [promptCharBudget, setPromptCharBudget] = useState<number>(800);
   const [mode, setMode] = useState<Mode>("place_product");
   const [mediaModel, setMediaModel] = useState<string>("google/gemini-3.1-flash-image-preview");
-  const [selectedModel, setSelectedModel] = useState<string>("google/gemini-2.5-flash");
-  const [selectorModels, setSelectorModels] = useState<{ id: string; name: string; provider: string }[]>([]);
+  const [selectedModel] = useState<string>("google/gemini-2.5-flash");
   const [brandSlug, setBrandSlug] = useState<string | null>(null);
   const [brands, setBrands] = useState<BrandProfile[]>([]);
   const [products, setProducts] = useState<ProductAsset[]>([]);
@@ -3696,7 +3695,7 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
   const [generatingMedia, setGeneratingMedia] = useState(false);
   const [mediaResult, setMediaResult] = useState<{ type: "image" | "video"; url: string } | null>(null);
   const [videoJobId, setVideoJobId] = useState<string | null>(null);
-  const [videoJobStatus, setVideoJobStatus] = useState<"pending" | "in_progress" | "completed" | "failed" | null>(null);
+  const [videoJobStatus, setVideoJobStatus] = useState<"pending" | "completed" | "failed" | null>(null);
   const [mediaError, setMediaError] = useState<string | null>(null);
 
   // Per-brand media-generation spend (current month, requesting user only).
@@ -3725,13 +3724,6 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
       })
       .catch(() => {});
 
-    fetch("/api/models")
-      .then((r) => r.json())
-      .then((data) => {
-        if (Array.isArray(data.selector_models)) setSelectorModels(data.selector_models);
-      })
-      .catch(() => {});
-
     fetch("/api/health")
       .then((r) => r.json())
       .then((data) => {
@@ -3744,12 +3736,16 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
       });
   }, []);
 
-  // Reload products whenever the selected brand changes
+  // Reload products whenever the selected brand changes. Product ids are
+  // brand-scoped, so always drop the previous brand's selections/picks here —
+  // this covers every path that changes the brand (dropdown, brand card,
+  // history restore), not just clearing the brand.
   useEffect(() => {
+    setSelectedProductIds([]);
+    setProductPicks([]);
     if (!brandSlug) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setProducts([]);
-      setSelectedProductIds([]);
       return;
     }
     fetch(`/api/products?brand=${encodeURIComponent(brandSlug)}`)
@@ -3867,11 +3863,14 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
       try {
         const res = await fetch(`/api/poll-video/${videoJobId}`);
         const data = await res.json();
-        setVideoJobStatus(data.status);
-        if (data.status === "completed" && data.videoUrl) {
+        // The route returns a normalized phase: pending | completed | failed.
+        const phase = data.status as "pending" | "completed" | "failed";
+        setVideoJobStatus(phase);
+        if (phase === "completed" && data.videoUrl) {
           setMediaResult({ type: "video", url: data.videoUrl });
           setGeneratingMedia(false);
-        } else if (data.status === "failed") {
+        } else if (phase === "completed" || phase === "failed") {
+          // 'completed' here means no URL came back — treat as a failure.
           setMediaError(data.error || "Video generation failed");
           setGeneratingMedia(false);
         }
@@ -4095,40 +4094,55 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
       const decoder = new TextDecoder();
       let prompt = "";
 
+      // Handle one complete `data: ...` SSE line. Defined once so the read loop
+      // and the final flush share identical logic.
+      const handleLine = (line: string) => {
+        if (!line.startsWith("data: ")) return;
+        try {
+          const data = JSON.parse(line.slice(6));
+          if (data.error) {
+            setError(data.error);
+            setGenerating(false);
+          } else if (data.status === "connected") {
+            setUsedModel(data.model);
+          } else if (Array.isArray(data.productPicks)) {
+            setProductPicks(data.productPicks as ClientProductPick[]);
+          } else if (data.text) {
+            prompt += data.text;
+            setGeneratedPrompt(prompt);
+            if (data.model) setUsedModel(data.model);
+          } else if (data.done) {
+            if (data.model) setUsedModel(data.model);
+            if (data.historyId) {
+              setCurrentHistoryId(data.historyId);
+              resetCurrentFeedback();
+            }
+          }
+        } catch {
+          // skip malformed lines
+        }
+      };
+
       if (reader) {
+        // Buffer across reads: an SSE event can be split across chunk
+        // boundaries (or a multibyte char split), so only parse complete lines.
+        let buffer = "";
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
 
-          const text = decoder.decode(value);
-          const lines = text.split("\n").filter((l) => l.startsWith("data: "));
-
-          for (const line of lines) {
-            try {
-              const data = JSON.parse(line.slice(6));
-              if (data.error) {
-                setError(data.error);
-                setGenerating(false);
-              } else if (data.status === "connected") {
-                setUsedModel(data.model);
-              } else if (Array.isArray(data.productPicks)) {
-                setProductPicks(data.productPicks as ClientProductPick[]);
-              } else if (data.text) {
-                prompt += data.text;
-                setGeneratedPrompt(prompt);
-                if (data.model) setUsedModel(data.model);
-              } else if (data.done) {
-                if (data.model) setUsedModel(data.model);
-                if (data.historyId) {
-                  setCurrentHistoryId(data.historyId);
-                  resetCurrentFeedback();
-                }
-              }
-            } catch {
-              // skip malformed chunks
-            }
+          buffer += decoder.decode(value, { stream: true });
+          let nl: number;
+          while ((nl = buffer.indexOf("\n")) !== -1) {
+            const line = buffer.slice(0, nl).replace(/\r$/, "");
+            buffer = buffer.slice(nl + 1);
+            if (line) handleLine(line);
           }
         }
+        // Flush any trailing line not terminated by a newline.
+        buffer += decoder.decode();
+        const tail = buffer.replace(/\r$/, "").trim();
+        if (tail) handleLine(tail);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -4581,15 +4595,33 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
     return <SetupScreen />;
   }
 
-  const productCategories = getProductCategories(products);
-  const visibleProducts = products.filter((p) =>
-    productMatchesFilters(p, productSearch, productCategoryFilter)
+  // Memoized so these don't recompute on every render (e.g. each streamed
+  // token or instruction keystroke). selectedNotVisible is O(products²).
+  const productCategories = useMemo(
+    () => getProductCategories(products),
+    [products]
+  );
+  const visibleProducts = useMemo(
+    () =>
+      products.filter((p) =>
+        productMatchesFilters(p, productSearch, productCategoryFilter)
+      ),
+    [products, productSearch, productCategoryFilter]
   );
   // Always show selected products even if they don't match the current filters
-  const selectedNotVisible = products.filter(
-    (p) => selectedProductIds.includes(p.id) && !visibleProducts.some((v) => v.id === p.id)
+  const selectedNotVisible = useMemo(
+    () =>
+      products.filter(
+        (p) =>
+          selectedProductIds.includes(p.id) &&
+          !visibleProducts.some((v) => v.id === p.id)
+      ),
+    [products, selectedProductIds, visibleProducts]
   );
-  const productListItems = [...selectedNotVisible, ...visibleProducts];
+  const productListItems = useMemo(
+    () => [...selectedNotVisible, ...visibleProducts],
+    [selectedNotVisible, visibleProducts]
+  );
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -5543,8 +5575,6 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
               {generatingMedia
                 ? isVideoTarget
                   ? videoJobStatus === "pending"
-                    ? "Queued..."
-                    : videoJobStatus === "in_progress"
                     ? "Generating..."
                     : "Processing..."
                   : "Generating..."

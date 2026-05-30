@@ -1,5 +1,4 @@
 import { NextRequest } from "next/server";
-import OpenAI from "openai";
 import fs from "fs";
 import path from "path";
 import type {
@@ -9,21 +8,11 @@ import type {
 import { getCharLimit, OUTPUT_TARGETS } from "@/lib/types";
 import { CONFIG_DIR } from "@/lib/paths";
 import { requireUser } from "@/lib/auth-helpers";
+import { createOpenRouterClient } from "@/lib/openrouter";
 
 function loadModelPrefs(): ModelPreferences {
   const prefsPath = path.join(CONFIG_DIR, "model-preferences.json");
   return JSON.parse(fs.readFileSync(prefsPath, "utf-8"));
-}
-
-function createClient(apiKey: string): OpenAI {
-  return new OpenAI({
-    apiKey,
-    baseURL: "https://openrouter.ai/api/v1",
-    defaultHeaders: {
-      "HTTP-Referer": "http://localhost:3000",
-      "X-Title": "AI Prompt Generator",
-    },
-  });
 }
 
 export async function POST(request: NextRequest) {
@@ -84,7 +73,7 @@ Output ONLY the refined prompt — no preamble, no explanation, no markdown form
 
   for (const model of models) {
     try {
-      const client = createClient(apiKey);
+      const client = createOpenRouterClient(apiKey);
 
       const stream = await Promise.race([
         client.chat.completions.create({

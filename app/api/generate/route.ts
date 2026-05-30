@@ -8,25 +8,16 @@ import { saveToHistory } from "@/lib/db";
 import { compressImageBase64 } from "@/lib/image-compress";
 import { CONFIG_DIR } from "@/lib/paths";
 import { requireUser } from "@/lib/auth-helpers";
-import { getProduct, getProductFile } from "@/lib/products";
+import { listProducts, getProductFile } from "@/lib/products";
 import { pickProductImages, type ProductPick } from "@/lib/product-picker";
+import { createOpenRouterClient } from "@/lib/openrouter";
+import { mimeTypeForExt } from "@/lib/mime";
 import type { Mode, OutputTarget, Creator, ModelPreferences, ProductAsset } from "@/lib/types";
 import { getDefaultTarget } from "@/lib/types";
 
 function loadModelPrefs(): ModelPreferences {
   const prefsPath = path.join(CONFIG_DIR, "model-preferences.json");
   return JSON.parse(fs.readFileSync(prefsPath, "utf-8"));
-}
-
-function createClient(apiKey: string): OpenAI {
-  return new OpenAI({
-    apiKey,
-    baseURL: "https://openrouter.ai/api/v1",
-    defaultHeaders: {
-      "HTTP-Referer": "http://localhost:3000",
-      "X-Title": "AI Prompt Generator",
-    },
-  });
 }
 
 export async function POST(request: NextRequest) {
@@ -96,12 +87,15 @@ async function handleGenerate(request: NextRequest) {
     );
   }
 
-  // Resolve selected products → assets, pick best image per product based on instruction
+  // Resolve selected products → assets, pick best image per product based on instruction.
+  // List the brand's products once and look ids up in a Map (getProduct would
+  // re-scan the whole products dir per id).
   const selectedProducts: ProductAsset[] = [];
   if (brandSlug && Array.isArray(selectedProductIds) && selectedProductIds.length > 0) {
+    const byId = new Map(listProducts(brandSlug).map((p) => [p.id, p]));
     for (const id of selectedProductIds) {
       if (typeof id !== "string") continue;
-      const p = getProduct(brandSlug, id);
+      const p = byId.get(id);
       if (p && p.images.length > 0) selectedProducts.push(p);
     }
   }
@@ -112,7 +106,7 @@ async function handleGenerate(request: NextRequest) {
       selectedProducts,
       instruction,
       apiKey,
-      "google/gemini-2.5-flash-lite"
+      prefs.product_picker_model ?? "google/gemini-2.5-flash-lite"
     );
   }
 
@@ -123,17 +117,9 @@ async function handleGenerate(request: NextRequest) {
     if (!product) continue;
     const file = getProductFile(product.brandSlug, pick.filename);
     if (!file) continue;
-    const mimeType =
-      file.ext === ".png"
-        ? "image/png"
-        : file.ext === ".webp"
-        ? "image/webp"
-        : file.ext === ".gif"
-        ? "image/gif"
-        : "image/jpeg";
     productPrimaryImages.push({
       base64: file.buffer.toString("base64"),
-      mimeType,
+      mimeType: mimeTypeForExt(file.ext),
     });
   }
 
@@ -191,6 +177,18 @@ The first primary image attached is "${selectedProducts[0].name}" (variant: "${p
 
   const userContent: OpenAI.ChatCompletionContentPart[] = [];
 
+  // Compress a group of images concurrently (sharp is CPU-bound; awaiting each
+  // serially would block for the sum of all encodes), then append in order.
+  const pushImages = async (images: { base64: string; mimeType: string }[]) => {
+    const processed = await Promise.all(images.map(processImage));
+    for (const p of processed) {
+      userContent.push({
+        type: "image_url",
+        image_url: { url: `data:${p.mimeType};base64,${p.base64}` },
+      });
+    }
+  };
+
   if (combinedPrimary.length > 0) {
     userContent.push({
       type: "text",
@@ -198,15 +196,7 @@ The first primary image attached is "${selectedProducts[0].name}" (variant: "${p
         ? "=== Style references (do NOT copy contents — use only as visual style hints) ==="
         : "=== Images to edit/animate ===",
     });
-    for (const img of combinedPrimary) {
-      const processed = await processImage(img);
-      userContent.push({
-        type: "image_url",
-        image_url: {
-          url: `data:${processed.mimeType};base64,${processed.base64}`,
-        },
-      });
-    }
+    await pushImages(combinedPrimary);
   }
 
   if (referenceImages?.length > 0) {
@@ -221,15 +211,7 @@ The first primary image attached is "${selectedProducts[0].name}" (variant: "${p
         type: "text",
         text: "=== Style/scene references ===",
       });
-      for (const img of refFileImages) {
-        const processed = await processImage(img);
-        userContent.push({
-          type: "image_url",
-          image_url: {
-            url: `data:${processed.mimeType};base64,${processed.base64}`,
-          },
-        });
-      }
+      await pushImages(refFileImages);
     }
 
     if (refUrlImages.length > 0) {
@@ -237,15 +219,7 @@ The first primary image attached is "${selectedProducts[0].name}" (variant: "${p
         type: "text",
         text: "=== Mood references (loose visual cues only — palette, lighting, atmosphere; do NOT literally describe individual images or copy their subjects into the prompt) ===",
       });
-      for (const img of refUrlImages) {
-        const processed = await processImage(img);
-        userContent.push({
-          type: "image_url",
-          image_url: {
-            url: `data:${processed.mimeType};base64,${processed.base64}`,
-          },
-        });
-      }
+      await pushImages(refUrlImages);
     }
   }
 
@@ -254,15 +228,7 @@ The first primary image attached is "${selectedProducts[0].name}" (variant: "${p
       type: "text",
       text: "=== Brand reference images ===",
     });
-    for (const img of brandCtx.imageFiles) {
-      const processed = await processImage(img);
-      userContent.push({
-        type: "image_url",
-        image_url: {
-          url: `data:${processed.mimeType};base64,${processed.base64}`,
-        },
-      });
-    }
+    await pushImages(brandCtx.imageFiles);
   }
 
   if (brandCtx?.styleImages?.length) {
@@ -270,15 +236,7 @@ The first primary image attached is "${selectedProducts[0].name}" (variant: "${p
       type: "text",
       text: "=== Brand style references (visual style hints only — do not copy subjects from these into the prompt) ===",
     });
-    for (const img of brandCtx.styleImages) {
-      const processed = await processImage(img);
-      userContent.push({
-        type: "image_url",
-        image_url: {
-          url: `data:${processed.mimeType};base64,${processed.base64}`,
-        },
-      });
-    }
+    await pushImages(brandCtx.styleImages);
   }
 
   userContent.push({
@@ -296,7 +254,7 @@ The first primary image attached is "${selectedProducts[0].name}" (variant: "${p
   for (const model of models) {
     const modelLabel = model.id;
     try {
-      const client = createClient(apiKey);
+      const client = createOpenRouterClient(apiKey);
 
       const createParams: OpenAI.ChatCompletionCreateParamsStreaming = {
         model: model.id,

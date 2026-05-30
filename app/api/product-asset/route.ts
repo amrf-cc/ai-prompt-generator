@@ -2,15 +2,7 @@ import { NextRequest } from "next/server";
 import { isBrandVisibleTo, requireUser } from "@/lib/auth-helpers";
 import { getBrand } from "@/lib/brands";
 import { getProductFile } from "@/lib/products";
-
-function mimeFor(ext: string): string {
-  const e = ext.toLowerCase();
-  if (e === ".png") return "image/png";
-  if (e === ".gif") return "image/gif";
-  if (e === ".webp") return "image/webp";
-  if (e === ".svg") return "image/svg+xml";
-  return "image/jpeg";
-}
+import { mimeTypeForExt } from "@/lib/mime";
 
 export async function GET(request: NextRequest) {
   const auth = await requireUser();
@@ -36,7 +28,7 @@ export async function GET(request: NextRequest) {
 
   return new Response(new Uint8Array(result.buffer), {
     headers: {
-      "Content-Type": mimeFor(result.ext),
+      "Content-Type": mimeTypeForExt(result.ext),
       "Cache-Control": "private, max-age=300",
     },
   });

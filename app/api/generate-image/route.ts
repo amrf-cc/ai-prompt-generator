@@ -1,29 +1,10 @@
 import { NextRequest } from "next/server";
-import fs from "fs";
-import path from "path";
-import OpenAI from "openai";
 import { requireUser } from "@/lib/auth-helpers";
 import { computeCost } from "@/lib/pricing";
 import { insertMediaGeneration } from "@/lib/db";
 import { getProductFile } from "@/lib/products";
-
-const DEBUG_LOG = path.join(process.cwd(), "data", "generate-image-debug.log");
-function dbg(msg: string) {
-  try {
-    fs.appendFileSync(DEBUG_LOG, `[${new Date().toISOString()}] ${msg}\n`);
-  } catch {}
-}
-
-function createClient(apiKey: string): OpenAI {
-  return new OpenAI({
-    apiKey,
-    baseURL: "https://openrouter.ai/api/v1",
-    defaultHeaders: {
-      "HTTP-Referer": "http://localhost:3000",
-      "X-Title": "Wondr Forge",
-    },
-  });
-}
+import { createOpenRouterClient } from "@/lib/openrouter";
+import { mimeTypeForExt } from "@/lib/mime";
 
 export async function POST(request: NextRequest) {
   try {
@@ -70,25 +51,14 @@ export async function POST(request: NextRequest) {
         if (!pick?.filename) continue;
         const file = getProductFile(brandSlug, pick.filename);
         if (!file) continue;
-        const mimeType =
-          file.ext === ".png"
-            ? "image/png"
-            : file.ext === ".webp"
-            ? "image/webp"
-            : file.ext === ".gif"
-            ? "image/gif"
-            : "image/jpeg";
         productImages.push({
           base64: file.buffer.toString("base64"),
-          mimeType,
+          mimeType: mimeTypeForExt(file.ext),
         });
       }
     }
-    dbg(
-      `model=${model} brandSlug=${brandSlug} picksReceived=${productPicks.length} picksFilenames=${JSON.stringify(productPicks.map((p) => p.filename))} productImagesLoaded=${productImages.length} primaryImages=${primaryImages.length}`
-    );
 
-    const client = createClient(apiKey);
+    const client = createOpenRouterClient(apiKey);
 
     type ContentPart =
       | { type: "image_url"; image_url: { url: string } }

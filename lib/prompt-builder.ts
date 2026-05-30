@@ -44,10 +44,12 @@ interface PromptRules {
     kling: TargetRules;
     gemini_image: TargetRules;
   };
-  overlays: {
-    photoshop: OverlayRules;
-    runway_image_to_video: OverlayRules;
-  };
+  /**
+   * Legacy per-software/per-flow overlays. No longer applied by buildSystemPrompt
+   * (the software selector was removed), so they are optional — the config may
+   * keep or drop them without affecting generation.
+   */
+  overlays?: Record<string, OverlayRules>;
 }
 
 type TargetRuleKey = keyof PromptRules["targets"];
@@ -94,12 +96,19 @@ export function validateRules(r: unknown): asserts r is PromptRules {
       throw new Error(`prompt-rules.json: targets.${key}.vocabulary must be an object`);
     }
   }
-  const overlays = rec.overlays as Record<string, Record<string, unknown>> | undefined;
-  if (!overlays) throw new Error("prompt-rules.json: missing overlays");
-  for (const key of ["photoshop", "runway_image_to_video"]) {
-    const o = overlays[key];
-    if (!o) throw new Error(`prompt-rules.json: missing overlays.${key}`);
-    if (!Array.isArray(o.rules)) throw new Error(`prompt-rules.json: overlays.${key}.rules must be an array`);
+  // Overlays are optional and no longer applied. If present, only sanity-check
+  // that each overlay's `rules` is an array — never require specific keys, so
+  // the config can drop unused overlays without breaking generation.
+  if (rec.overlays !== undefined) {
+    if (typeof rec.overlays !== "object" || rec.overlays === null) {
+      throw new Error("prompt-rules.json: overlays must be an object when present");
+    }
+    for (const [key, value] of Object.entries(rec.overlays as Record<string, unknown>)) {
+      const o = value as Record<string, unknown> | undefined;
+      if (o && o.rules !== undefined && !Array.isArray(o.rules)) {
+        throw new Error(`prompt-rules.json: overlays.${key}.rules must be an array`);
+      }
+    }
   }
 }
 

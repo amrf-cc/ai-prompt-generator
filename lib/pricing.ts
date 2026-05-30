@@ -132,7 +132,10 @@ export function computeCost(
   const components = buildComponents(pricing, inputs);
   const estimatedTotal = components.reduce((acc, c) => acc + c.estimatedUsd, 0);
 
-  if (typeof providerTotalUsd === "number" && providerTotalUsd >= 0) {
+  // Only trust a strictly-positive provider total. A reported 0 is usually an
+  // unpopulated field rather than a genuinely free generation, so fall through
+  // to the computed estimate instead of logging $0 as provider-billed.
+  if (typeof providerTotalUsd === "number" && providerTotalUsd > 0) {
     if (estimatedTotal > 0) {
       const scale = providerTotalUsd / estimatedTotal;
       return {
