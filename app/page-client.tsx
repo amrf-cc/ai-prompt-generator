@@ -2371,6 +2371,47 @@ function HistoryPanel({
               <p className="text-xs text-muted/60 mt-1 line-clamp-2 font-mono">
                 {entry.generated_prompt}
               </p>
+              {entry.media && entry.media.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {/* eslint-disable @next/next/no-img-element */}
+                  {entry.media.map((m) =>
+                    m.kind === "video" ? (
+                      <a
+                        key={m.id}
+                        href={m.result_url ?? "#"}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block w-16 h-16 rounded border border-border overflow-hidden bg-card-hover"
+                        title={`Video · ${m.model_id}`}
+                      >
+                        <video
+                          src={m.result_url ?? undefined}
+                          className="w-full h-full object-cover"
+                          muted
+                          preload="metadata"
+                        />
+                      </a>
+                    ) : (
+                      <a
+                        key={m.id}
+                        href={m.result_url ?? "#"}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block w-16 h-16 rounded border border-border overflow-hidden bg-card-hover"
+                        title={`Image · ${m.model_id}`}
+                      >
+                        <img
+                          src={m.result_url ?? ""}
+                          alt=""
+                          className="w-16 h-16 rounded object-cover border border-border"
+                          loading="lazy"
+                        />
+                      </a>
+                    )
+                  )}
+                  {/* eslint-enable @next/next/no-img-element */}
+                </div>
+              )}
               <div className="flex items-center justify-between mt-1.5">
                 <p className="text-[10px] text-muted/40">
                   {new Date(entry.timestamp).toLocaleString()}
@@ -2764,6 +2805,204 @@ function InsightsPanel({
 }
 
 // ─── Rule Editor ────────────────────────────────────────────────
+
+// ─── Generations Panel ──────────────────────────────────────────
+
+interface GenerationRow {
+  id: number;
+  timestamp: string;
+  kind: "image" | "video";
+  brand_slug: string | null;
+  model_id: string;
+  prompt: string;
+  history_id: number | null;
+  status: string;
+  result_url: string | null;
+  cost_usd: number;
+}
+
+function GenerationsPanel({
+  open,
+  onClose,
+  brands,
+}: {
+  open: boolean;
+  onClose: () => void;
+  brands: { slug: string; name: string }[];
+}) {
+  const [items, setItems] = useState<GenerationRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [filterKind, setFilterKind] = useState("");
+  const [filterBrand, setFilterBrand] = useState("");
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (filterKind) params.set("kind", filterKind);
+      if (filterBrand) params.set("brand", filterBrand);
+      params.set("limit", "200");
+      const res = await fetch(`/api/generations?${params}`);
+      if (res.ok) {
+        const data = (await res.json()) as GenerationRow[];
+        setItems(data);
+      }
+    } catch {
+      // non-critical
+    } finally {
+      setLoading(false);
+    }
+  }, [filterKind, filterBrand]);
+
+  useEffect(() => {
+    if (open) load();
+  }, [open, load]);
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/60 flex justify-end z-40">
+      <div className="w-full sm:max-w-2xl bg-card border-l border-border h-full flex flex-col">
+        <div className="flex items-center justify-between p-4 border-b border-border">
+          <div>
+            <h2 className="font-semibold">Generations</h2>
+            <p className="text-[11px] text-muted">
+              All generated images &amp; videos
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-muted hover:text-foreground"
+            title="Close"
+          >
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+        </div>
+
+        <div className="p-4 border-b border-border space-y-2">
+          <div className="flex gap-2">
+            <select
+              value={filterKind}
+              onChange={(e) => setFilterKind(e.target.value)}
+              className="flex-1 bg-background border border-border rounded-md px-2 py-1 text-xs focus:outline-none focus:border-accent"
+            >
+              <option value="">All kinds</option>
+              <option value="image">Images</option>
+              <option value="video">Videos</option>
+            </select>
+            <select
+              value={filterBrand}
+              onChange={(e) => setFilterBrand(e.target.value)}
+              className="flex-1 bg-background border border-border rounded-md px-2 py-1 text-xs focus:outline-none focus:border-accent"
+            >
+              <option value="">All brands</option>
+              {brands.map((b) => (
+                <option key={b.slug} value={b.slug}>
+                  {b.name}
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={load}
+              className="px-3 py-1 text-xs bg-accent text-white rounded-md hover:bg-accent-hover"
+            >
+              Filter
+            </button>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4">
+          {loading && (
+            <p className="text-sm text-muted text-center py-8">Loading...</p>
+          )}
+          {!loading && items.length === 0 && (
+            <p className="text-sm text-muted text-center py-8">
+              No generations yet
+            </p>
+          )}
+          {!loading && items.length > 0 && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {/* eslint-disable @next/next/no-img-element */}
+              {items.map((item) => (
+                <div
+                  key={item.id}
+                  className="border border-border rounded-lg p-2 space-y-1.5"
+                >
+                  <a
+                    href={item.result_url ?? "#"}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block rounded-lg overflow-hidden bg-background"
+                  >
+                    {item.kind === "video" ? (
+                      <video
+                        src={item.result_url ?? undefined}
+                        className="w-full h-32 object-cover"
+                        controls
+                        preload="metadata"
+                      />
+                    ) : (
+                      <img
+                        src={item.result_url ?? ""}
+                        alt=""
+                        className="w-full h-32 object-cover"
+                        loading="lazy"
+                      />
+                    )}
+                  </a>
+                  <p className="text-[11px] text-muted line-clamp-2 font-mono">
+                    {item.prompt}
+                  </p>
+                  <div className="flex items-center justify-between text-[10px] text-muted/60">
+                    <span className="truncate">{item.model_id}</span>
+                    <span>{new Date(item.timestamp).toLocaleDateString()}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`text-[10px] px-1.5 py-0.5 rounded ${
+                        item.status === "success"
+                          ? "bg-green-600/20 text-green-400"
+                          : item.status === "failed"
+                            ? "bg-red-600/20 text-red-400"
+                            : "bg-card-hover text-muted"
+                      }`}
+                    >
+                      {item.status}
+                    </span>
+                    {item.result_url && (
+                      <a
+                        href={item.result_url}
+                        download
+                        className="text-[10px] text-accent hover:underline"
+                      >
+                        download
+                      </a>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {/* eslint-enable @next/next/no-img-element */}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Rule Editor (continued) ────────────────────────────────────
 
 type RulesV2 = {
   version: number;
@@ -3681,6 +3920,9 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
   // Feature: Insights modal
   const [insightsOpen, setInsightsOpen] = useState(false);
 
+  // Feature: Generations modal
+  const [generationsOpen, setGenerationsOpen] = useState(false);
+
   // Feature: Rule editor
   const [showRuleEditor, setShowRuleEditor] = useState(false);
 
@@ -3824,6 +4066,8 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
           setShowProductModal(false);
         } else if (insightsOpen) {
           setInsightsOpen(false);
+        } else if (generationsOpen) {
+          setGenerationsOpen(false);
         } else if (historyOpen) {
           setHistoryOpen(false);
         } else if (showTemplates) {
@@ -3839,7 +4083,7 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [cropTarget, paintTarget, showBrandModal, showProductModal, historyOpen, insightsOpen, showTemplates, showSaveTemplate, showRuleEditor, showRefineInput]);
+  }, [cropTarget, paintTarget, showBrandModal, showProductModal, historyOpen, insightsOpen, generationsOpen, showTemplates, showSaveTemplate, showRuleEditor, showRefineInput]);
 
   // Close template dropdown on outside click
   useEffect(() => {
@@ -4647,6 +4891,13 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
             className="px-2 sm:px-3 py-1.5 text-xs sm:text-sm border border-border rounded-lg hover:bg-card-hover transition-colors"
           >
             History
+          </button>
+          <button
+            onClick={() => setGenerationsOpen(true)}
+            className="px-2 sm:px-3 py-1.5 text-xs sm:text-sm border border-border rounded-lg hover:bg-card-hover transition-colors"
+            title="Browse all generated images and videos"
+          >
+            Generations
           </button>
           <button
             onClick={() => setInsightsOpen(true)}
@@ -5668,6 +5919,12 @@ export default function PageClient({ currentUser, lockedBrandSlugs }: PageClient
       <InsightsPanel
         open={insightsOpen}
         onClose={() => setInsightsOpen(false)}
+      />
+
+      <GenerationsPanel
+        open={generationsOpen}
+        onClose={() => setGenerationsOpen(false)}
+        brands={brands.map((b) => ({ slug: b.slug, name: b.name }))}
       />
 
       {paintTarget && (

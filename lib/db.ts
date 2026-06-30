@@ -341,6 +341,80 @@ export function findMediaGenerationByJobId(jobId: string) {
     .get(jobId) as MediaGenerationRow | undefined;
 }
 
+export function getMediaGenerations(filters?: {
+  brand_slug?: string;
+  kind?: string;
+  limit?: number;
+}): MediaGenerationRow[] {
+  const db = getDb();
+  const conditions: string[] = [];
+  const params: unknown[] = [];
+
+  if (filters?.brand_slug) {
+    conditions.push("brand_slug = ?");
+    params.push(filters.brand_slug);
+  }
+  if (filters?.kind) {
+    conditions.push("kind = ?");
+    params.push(filters.kind);
+  }
+
+  const where =
+    conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+  const limit = filters?.limit ?? 100;
+
+  return db
+    .prepare(
+      `SELECT * FROM media_generations ${where} ORDER BY timestamp DESC LIMIT ?`
+    )
+    .all(...params, limit) as MediaGenerationRow[];
+}
+
+export function getMediaGenerationsByHistoryId(
+  historyId: number
+): MediaGenerationRow[] {
+  const db = getDb();
+  return db
+    .prepare(
+      "SELECT * FROM media_generations WHERE history_id = ? ORDER BY timestamp DESC"
+    )
+    .all(historyId) as MediaGenerationRow[];
+}
+
+/** Lightweight projection used when joining media onto history entries. */
+export interface HistoryMediaSummary {
+  id: number;
+  kind: MediaKind;
+  result_url: string | null;
+  model_id: string;
+  timestamp: string;
+}
+
+/** Map of history_id → media summaries, fetched in a single query. */
+export function getMediaForHistoryIds(
+  historyIds: number[]
+): Map<number, HistoryMediaSummary[]> {
+  const db = getDb();
+  const out = new Map<number, HistoryMediaSummary[]>();
+  if (historyIds.length === 0) return out;
+  const placeholders = historyIds.map(() => "?").join(",");
+  const rows = db
+    .prepare(
+      `SELECT id, kind, result_url, model_id, timestamp, history_id
+       FROM media_generations
+       WHERE history_id IN (${placeholders})
+       ORDER BY timestamp DESC`
+    )
+    .all(...historyIds) as (HistoryMediaSummary & { history_id: number })[];
+  for (const row of rows) {
+    const list = out.get(row.history_id) ?? [];
+    const { history_id, ...summary } = row;
+    list.push(summary);
+    out.set(history_id, list);
+  }
+  return out;
+}
+
 export interface MediaGenerationRow {
   id: number;
   timestamp: string;

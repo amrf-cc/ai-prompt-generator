@@ -225,6 +225,14 @@ export type BrandExtractField = "voice" | "visual" | "legal";
 
 export type HistoryStatus = "used" | "discarded" | null;
 
+export interface HistoryMediaEntry {
+  id: number;
+  kind: "image" | "video";
+  result_url: string | null;
+  model_id: string;
+  timestamp: string;
+}
+
 export interface HistoryEntry {
   id: number;
   timestamp: string;
@@ -242,6 +250,7 @@ export interface HistoryEntry {
   notes: string | null;
   status: HistoryStatus;
   created_by: string | null;
+  media?: HistoryMediaEntry[];
 }
 
 export const FEEDBACK_TAGS = [

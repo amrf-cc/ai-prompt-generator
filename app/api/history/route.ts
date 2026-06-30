@@ -4,6 +4,7 @@ import {
   getHistoryEntry,
   updateFeedback,
   deleteHistoryEntry,
+  getMediaForHistoryIds,
   type HistoryRow,
   type HistoryStatus,
 } from "@/lib/db";
@@ -30,6 +31,16 @@ export async function GET(request: NextRequest) {
     };
 
     const history = getHistory(filters) as Record<string, unknown>[];
+
+    // Attach associated media generations to each entry.
+    const ids = history
+      .map((e) => e.id as number)
+      .filter((id): id is number => typeof id === "number");
+    const mediaMap = getMediaForHistoryIds(ids);
+    for (const entry of history) {
+      const id = entry.id as number;
+      entry.media = mediaMap.get(id) ?? [];
+    }
 
     if (format === "csv") {
       const headers = [
