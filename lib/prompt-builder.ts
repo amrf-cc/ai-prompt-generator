@@ -45,9 +45,12 @@ interface PromptRules {
     gemini_image: TargetRules;
   };
   /**
-   * Legacy per-software/per-flow overlays. No longer applied by buildSystemPrompt
-   * (the software selector was removed), so they are optional — the config may
-   * keep or drop them without affecting generation.
+   * Per-software/per-flow overlays. Applied by buildSystemPrompt when the
+   * mode + outputTarget combination matches an overlay key:
+   *   - "photoshop": edit_single + firefly (Generative Fill / Expand)
+   *   - "runway_image_to_video": animate_single (Image-to-Video)
+   * When active, overlay values (skeleton, output_format, must_include,
+   * must_avoid, examples, rules) override the base target's equivalents.
    */
   overlays?: Record<string, OverlayRules>;
 }
@@ -96,9 +99,10 @@ export function validateRules(r: unknown): asserts r is PromptRules {
       throw new Error(`prompt-rules.json: targets.${key}.vocabulary must be an object`);
     }
   }
-  // Overlays are optional and no longer applied. If present, only sanity-check
-  // that each overlay's `rules` is an array — never require specific keys, so
-  // the config can drop unused overlays without breaking generation.
+  // Overlays are optional. If present, sanity-check that each overlay's
+  // `rules` is an array — the overlay may also carry skeleton, output_format,
+  // must_include, must_avoid, and examples, all of which are type-checked
+  // when accessed in buildSystemPrompt via the OverlayRules interface.
   if (rec.overlays !== undefined) {
     if (typeof rec.overlays !== "object" || rec.overlays === null) {
       throw new Error("prompt-rules.json: overlays must be an object when present");
@@ -249,6 +253,48 @@ export function buildSystemPrompt(
     ? `${Math.round(effectiveHard * 0.85)}–${effectiveHard} characters`
     : charLimit.soft;
 
+  // ── Overlay selection ──────────────────────────────────────────
+  // Overlays are specialised rule-sets that override parts of the base target
+  // rules when the user's workflow demands a narrower prompt style.  They live
+  // in prompt-rules.json under "overlays" and are injected here — *not* as
+  // optional legacy data, but as active modifiers.
+  const overlays = rules.overlays ?? {};
+
+  // Photoshop Generative Fill / Expand: when editing a single image for
+  // Firefly (Adobe), the prompt is going into Photoshop's selection-based
+  // generator.  The overlay replaces the base Firefly structure with the
+  // "only describe what goes inside the selection" rules.
+  const isPhotoshopFill =
+    mode === "edit_single" && outputTarget === "firefly" && !!overlays.photoshop;
+
+  // Runway Image-to-Video: when animating a single still, the overlay
+  // reinforces motion-only rules (don't re-describe what's already visible).
+  const isRunwayI2V =
+    mode === "animate_single" && !!overlays.runway_image_to_video;
+
+  // When a Photoshop overlay is active, the edit_single mode description
+  // ("describe the fully realized result") is actively harmful — it
+  // encourages the model to describe the entire scene.  Replace it.
+  const modeDescription = isPhotoshopFill
+    ? "The user has made a selection in Photoshop and wants to generate content inside that selection only. Write a prompt that describes ONLY what should appear inside the selected area — not the surrounding image, not the existing subject, not the composition. Photoshop already has the rest of the image; your prompt tells it what to put in the hole."
+    : MODE_DESCRIPTIONS[mode];
+
+  // Pick the effective skeleton / output-format / must-include / must-avoid /
+  // examples — overlay values take priority when present.
+  const overlay = isPhotoshopFill
+    ? overlays.photoshop!
+    : isRunwayI2V
+      ? overlays.runway_image_to_video!
+      : null;
+
+  const effectiveSkeleton = overlay?.skeleton ?? target.skeleton;
+  const effectiveOutputFormat = overlay?.output_format ?? target.output_format;
+  const effectiveMustInclude = overlay?.must_include ?? mustInclude;
+  const effectiveMustAvoid = overlay?.must_avoid ?? target.must_avoid;
+  const effectiveExamples = overlay?.examples ?? target.examples;
+  // Overlays do not carry their own vocabulary — always use the target's.
+  const effectiveVocabulary = target.vocabulary;
+
   let systemPrompt = `You are an expert prompt engineer. The user will generate the final output directly inside this app's built-in generator, which routes the prompt to the ${targetFull} model. Your sole job is to write one single polished prompt that will be sent verbatim to that model.
 
 Output ONLY the prompt — no preamble, no explanation, no markdown formatting, no quotes around the prompt, no labels.
@@ -259,31 +305,45 @@ Aim for ${effectiveSoft}. The interface enforces a ${effectiveHard}-character ha
 Pack the prompt with concrete, named detail across every dimension the format calls for: subject (materials, surfaces, micro-textures, wear, age, posture, expression), environment (architecture, props, weather, time of day, atmospheric haze, depth cues), lighting (source, direction, quality, color temperature, contrast, shadow shape), composition (framing, camera height, lens, depth of field, foreground/midground/background layering), and style (medium, mood, color palette, era references where allowed by platform rules). Every clause should add information the generator can act on; only cut a word if it is a true filler ("very", "really", "somewhat") or a duplicate of something already stated.
 
 ## Output format
-${target.output_format}
+${effectiveOutputFormat}
 
 ## What the user is trying to do (mode)
-${MODE_DESCRIPTIONS[mode]}
+${modeDescription}
 
 ## Required structure (your prompt MUST instantiate this template)
-${target.skeleton}
+${effectiveSkeleton}
 
 ## Must include (every prompt has all of these)
-${mustInclude.map((r) => `- ${r}`).join("\n")}
+${effectiveMustInclude.map((r) => `- ${r}`).join("\n")}
 
 ## Anti-patterns (NEVER do these — they are known failure modes for this model)
-${target.must_avoid.map((r) => `- ${r}`).join("\n")}
+${effectiveMustAvoid.map((r) => `- ${r}`).join("\n")}
 
 ## Vocabulary (prefer these exact terms over synonyms)
-${renderVocabulary(target.vocabulary)}
+${renderVocabulary(effectiveVocabulary)}
 
 ## Examples of strong prompts for ${targetShort}
-${renderExamples(target.examples)}
+${renderExamples(effectiveExamples)}
 
 ## Universal rules (apply to all prompts)
 ${rules.global_rules.map((r) => `- ${r}`).join("\n")}
 
 ## Detailed ${targetShort} rules (apply alongside the structure above)
 ${detailedRules.map((r) => `- ${r}`).join("\n")}`;
+
+  // Inject overlay-specific rules as a high-priority section that overrides
+  // any conflicting base target rules.
+  if (overlay?.rules?.length) {
+    const overlayName = isPhotoshopFill
+      ? "Photoshop Generative Fill"
+      : isRunwayI2V
+        ? "Image-to-Video"
+        : "Overlay";
+    systemPrompt += `\n\n## ${overlayName} rules (OVERRIDES conflicting rules above)
+These rules are specific to the ${overlayName} workflow and take priority over any conflicting target rule above.
+
+${overlay.rules.map((r) => `- ${r}`).join("\n")}`;
+  }
 
   if (hasPaintedImages) {
     systemPrompt += `\n\n## User-highlighted areas
